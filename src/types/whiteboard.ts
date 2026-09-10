@@ -1,0 +1,129 @@
+/**
+ * All whiteboard-related types for Version 5 (Lasso Selection, Shapes, Text, Styles, Notes, Laser).
+ */
+
+/** A single captured pointer sample in world coordinates: position + calibrated pressure */
+export interface StrokePoint {
+  x: number;
+  y: number;
+  pressure: number;
+}
+
+/** Line style options: Solid, Dashed, Dotted */
+export type LineStyle = "solid" | "dashed" | "dotted";
+
+/** Shape fill options: None (outline only), Semi-transparent fill */
+export type FillStyle = "none" | "semi";
+
+/** A fully recorded stroke, highlighter, or eraser path committed to history */
+export interface Stroke {
+  id: string;
+  color: string;
+  width: StrokeWidth;
+  points: StrokePoint[];
+  isEraser?: boolean;
+  isHighlighter?: boolean;
+  lineStyle?: LineStyle;
+}
+
+/** Geometric shapes for teaching (Math, Physics, Diagrams) */
+export type ShapeType = "line" | "arrow" | "rectangle" | "circle" | "triangle";
+
+export interface ShapeItem {
+  id: string;
+  type: ShapeType;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: string;
+  width: StrokeWidth;
+  lineStyle?: LineStyle;
+  fillStyle?: FillStyle;
+}
+
+/** Typed Text item on the board */
+export interface TextItem {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  color: string;
+  fontSize: number;
+}
+
+/** Educator Sticky Note / Callout Card */
+export interface StickyNote {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+}
+
+/** Laser pointer point with timestamp for decaying comet tail */
+export interface LaserPoint {
+  x: number;
+  y: number;
+  time: number;
+}
+
+/** Pasted image or rendered PDF page placed on the infinite canvas in world coordinates */
+export interface PastedImage {
+  id: string;
+  url: string;
+  imgElement: HTMLImageElement;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isPdfPage?: boolean;
+  pdfName?: string;
+  pageNumber?: number;
+  totalPages?: number;
+}
+
+/** Camera state for infinite canvas pan and zoom */
+export interface Camera {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+/** Active tool mode */
+export type ToolMode =
+  | "draw"
+  | "highlighter"
+  | "lasso"
+  | "line"
+  | "arrow"
+  | "rectangle"
+  | "circle"
+  | "triangle"
+  | "text"
+  | "note"
+  | "laser"
+  | "erase"
+  | "pan";
+
+/** Educator Grid styles */
+export type GridStyle = "dots" | "grid" | "none";
+
+/** Palette color for strokes, shapes, and notes */
+export type StrokeColor = string;
+
+export type StrokeWidth = "thin" | "medium" | "thick";
+
+export const STROKE_WIDTH_MAP: Record<StrokeWidth, number> = {
+  thin: 3,
+  medium: 6,
+  thick: 12,
+};
+
+/** Image resize handle positions */
+export type ResizeHandle = "nw" | "ne" | "sw" | "se";
+
+/** Stylus tablet pressure calibration curves */
+export type PressureCurve = "soft" | "medium" | "firm" | "off";
