@@ -7,6 +7,7 @@ import {
   Copy,
   Layers,
   X,
+  Maximize2,
 } from "lucide-react";
 import type { Slide } from "../types/whiteboard";
 
@@ -17,6 +18,7 @@ interface SlideTrayProps {
   onAddBlankSlide: () => void;
   onDuplicateSlide: () => void;
   onDeleteSlide: () => void;
+  onFitToScreen?: () => void;
 }
 
 export const SlideTray: React.FC<SlideTrayProps> = ({
@@ -26,6 +28,7 @@ export const SlideTray: React.FC<SlideTrayProps> = ({
   onAddBlankSlide,
   onDuplicateSlide,
   onDeleteSlide,
+  onFitToScreen,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -210,6 +213,16 @@ export const SlideTray: React.FC<SlideTrayProps> = ({
         >
           <ChevronRight className="w-4 h-4" />
         </button>
+
+        {onFitToScreen && (
+          <button
+            onClick={onFitToScreen}
+            title="Fit Slide to Full Screen (0 / Ctrl+0)"
+            className="p-1.5 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 transition-all duration-150 active:scale-90"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
+        )}
 
         <div className="w-px h-4 bg-white/10 shrink-0 mx-0.5" />
 

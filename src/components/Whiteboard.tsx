@@ -377,6 +377,43 @@ export const Whiteboard: React.FC = () => {
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.zoom, cam.zoom);
 
+    // 3.5. Render 16:9 Presentation Blackboard Stage Frame
+    const slideW = 1920;
+    const slideH = 1080;
+    const slideX = -slideW / 2;
+    const slideY = -slideH / 2;
+
+    ctx.save();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.lineWidth = 1.5 / cam.zoom;
+    if (typeof ctx.roundRect === "function") {
+      ctx.beginPath();
+      ctx.roundRect(slideX, slideY, slideW, slideH, 12 / cam.zoom);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(slideX, slideY, slideW, slideH);
+    }
+
+    // Corner crosshairs for 16:9 widescreen registration
+    const markLen = 16 / cam.zoom;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+    ctx.lineWidth = 1.2 / cam.zoom;
+    const stageCorners = [
+      [slideX, slideY, 1, 1],
+      [slideX + slideW, slideY, -1, 1],
+      [slideX, slideY + slideH, 1, -1],
+      [slideX + slideW, slideY + slideH, -1, -1],
+    ];
+    for (const [cx, cy, dx, dy] of stageCorners) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + dx * markLen, cy);
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx, cy + dy * markLen);
+      ctx.stroke();
+    }
+    ctx.restore();
+
     // 4. Render Pasted Images & PDF Pages
     for (const item of imagesRef.current) {
       if (item.imgElement.complete && item.imgElement.naturalWidth > 0) {
@@ -931,6 +968,82 @@ export const Whiteboard: React.FC = () => {
     scheduleRedraw();
   }, [scheduleRedraw]);
 
+  // ── True Browser Fullscreen Mode (Monitor / Presentation Fullscreen) ─────────
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn("Fullscreen request error:", err);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch((err) => {
+          console.warn("Exit fullscreen error:", err);
+        });
+      }
+    }
+  }, []);
+
+  // ── Fit Current Slide / PDF Page to Viewport Screen (Proper Full View) ────────
+  const handleFitToScreen = useCallback((
+    targetW?: number,
+    targetH?: number,
+    targetX?: number,
+    targetY?: number
+  ) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const viewW = canvas.offsetWidth;
+    const viewH = canvas.offsetHeight;
+
+    const currentSlide = slidesRef.current[currentSlideIndexRef.current];
+    const firstPdfOrImg = currentSlide?.images[0];
+
+    let tw = targetW ?? 1920;
+    let th = targetH ?? 1080;
+    let tx = targetX ?? -960;
+    let ty = targetY ?? -540;
+
+    if (targetW === undefined && firstPdfOrImg) {
+      tw = firstPdfOrImg.width;
+      th = firstPdfOrImg.height;
+      tx = firstPdfOrImg.x;
+      ty = firstPdfOrImg.y;
+    }
+
+    // Comfortable presentation padding (leave room for top header 64px & bottom tray 60px)
+    const padX = 24;
+    const padY = 64;
+    const availW = Math.max(100, viewW - padX * 2);
+    const availH = Math.max(100, viewH - padY * 2);
+
+    const scaleX = availW / tw;
+    const scaleY = availH / th;
+    const fitZoom = Math.min(scaleX, scaleY);
+
+    const centerX = tx + tw / 2;
+    const centerY = ty + th / 2;
+
+    const nextCam: Camera = {
+      zoom: fitZoom,
+      x: viewW / 2 - centerX * fitZoom,
+      y: (viewH + 16) / 2 - centerY * fitZoom,
+    };
+
+    cameraRef.current = nextCam;
+    setCamera(nextCam);
+    scheduleRedraw();
+  }, [scheduleRedraw]);
+
   const handleSelectSlide = useCallback((targetIndex: number) => {
     if (
       targetIndex < 0 ||
@@ -943,7 +1056,10 @@ export const Whiteboard: React.FC = () => {
     currentSlideIndexRef.current = targetIndex;
     setCurrentSlideIndex(targetIndex);
     loadSlide(latestDeck[targetIndex]);
-  }, [syncCurrentSlideToDeck, loadSlide]);
+    setTimeout(() => {
+      handleFitToScreen();
+    }, 20);
+  }, [syncCurrentSlideToDeck, loadSlide, handleFitToScreen]);
 
   const handleAddBlankSlide = useCallback(() => {
     const latestDeck = syncCurrentSlideToDeck();
@@ -967,7 +1083,10 @@ export const Whiteboard: React.FC = () => {
     currentSlideIndexRef.current = insertIdx;
     setCurrentSlideIndex(insertIdx);
     loadSlide(newSlide);
-  }, [syncCurrentSlideToDeck, loadSlide]);
+    setTimeout(() => {
+      handleFitToScreen();
+    }, 20);
+  }, [syncCurrentSlideToDeck, loadSlide, handleFitToScreen]);
 
   const handleDuplicateSlide = useCallback((index: number) => {
     const latestDeck = syncCurrentSlideToDeck();
@@ -1032,14 +1151,18 @@ export const Whiteboard: React.FC = () => {
       // If multi-page PDF, generate lecture slide deck (Unacademy masterclass workflow)
       if (pages.length > 1) {
         const newDeck: Slide[] = pages.map((p, idx) => {
+          const aspect = p.worldWidth / p.worldHeight;
+          const slideH = 1080;
+          const slideW = Math.round(1080 * aspect);
+
           const pageImage: PastedImage = {
             id: crypto.randomUUID(),
             url: p.dataUrl,
             imgElement: p.imgElement,
-            x: -p.worldWidth / 2,
-            y: -p.worldHeight / 2,
-            width: p.worldWidth,
-            height: p.worldHeight,
+            x: -slideW / 2,
+            y: -slideH / 2,
+            width: slideW,
+            height: slideH,
             isPdfPage: true,
             pdfName: pendingPdf?.pdf.fileName,
             pageNumber: p.pageNumber,
@@ -1062,6 +1185,48 @@ export const Whiteboard: React.FC = () => {
         setCurrentSlideIndex(0);
         loadSlide(newDeck[0]);
         setPendingPdf(null);
+
+        setTimeout(() => {
+          const firstImg = newDeck[0].images[0];
+          handleFitToScreen(firstImg.width, firstImg.height, firstImg.x, firstImg.y);
+        }, 50);
+        return;
+      }
+
+      // Single-page PDF import: place centered at 1080p presentation scale
+      if (pages.length === 1) {
+        const p = pages[0];
+        const aspect = p.worldWidth / p.worldHeight;
+        const slideH = 1080;
+        const slideW = Math.round(1080 * aspect);
+
+        const newImage: PastedImage = {
+          id: crypto.randomUUID(),
+          url: p.dataUrl,
+          imgElement: p.imgElement,
+          x: -slideW / 2,
+          y: -slideH / 2,
+          width: slideW,
+          height: slideH,
+          isPdfPage: true,
+          pdfName: pendingPdf?.pdf.fileName,
+          pageNumber: p.pageNumber,
+          totalPages: pendingPdf?.pdf.numPages,
+        };
+
+        setUndoStack((u) => [...u, takeSnapshot()]);
+        setRedoStack([]);
+
+        const next = [...imagesRef.current, newImage];
+        imagesRef.current = next;
+        setImages(next);
+        setSelectedImageId(newImage.id);
+        setPendingPdf(null);
+        scheduleRedraw();
+
+        setTimeout(() => {
+          handleFitToScreen(slideW, slideH, -slideW / 2, -slideH / 2);
+        }, 50);
         return;
       }
 
@@ -1117,7 +1282,7 @@ export const Whiteboard: React.FC = () => {
       setPendingPdf(null);
       scheduleRedraw();
     },
-    [pendingPdf, takeSnapshot, scheduleRedraw, loadSlide]
+    [pendingPdf, takeSnapshot, scheduleRedraw, loadSlide, handleFitToScreen]
   );
 
   const restoreSnapshot = useCallback((snap: BoardSnapshot) => {
@@ -1447,7 +1612,10 @@ export const Whiteboard: React.FC = () => {
           setGridStyle((g) => (g === "dots" ? "grid" : g === "grid" ? "none" : "dots"));
           break;
         case "0":
-          setCamera({ x: 0, y: 0, zoom: 1 });
+          handleFitToScreen();
+          break;
+        case "f":
+          toggleFullscreen();
           break;
         case "=":
         case "+":
@@ -1478,7 +1646,7 @@ export const Whiteboard: React.FC = () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [handleUndo, handleRedo, handleAddBlankSlide, handleSelectSlide, scheduleRedraw]);
+  }, [handleUndo, handleRedo, handleAddBlankSlide, handleSelectSlide, handleFitToScreen, toggleFullscreen, scheduleRedraw]);
 
   // ── Hit-testing images and resize handles ────────────────────────────────────
   const hitTestImageHandle = (
@@ -2456,6 +2624,9 @@ export const Whiteboard: React.FC = () => {
         onExport={handleExport}
         onExportNotesPdf={handleExportNotesPdf}
         isExportingNotes={isExportingNotes}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
+        onFitToScreen={handleFitToScreen}
         onClear={handleClear}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         isPenActive={isLiveStylus}
@@ -2697,6 +2868,7 @@ export const Whiteboard: React.FC = () => {
         onAddBlankSlide={handleAddBlankSlide}
         onDuplicateSlide={() => handleDuplicateSlide(currentSlideIndex)}
         onDeleteSlide={() => handleDeleteSlide(currentSlideIndex)}
+        onFitToScreen={handleFitToScreen}
       />
     </div>
   );

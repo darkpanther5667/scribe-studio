@@ -12,6 +12,9 @@ import {
   MousePointer2,
   BookOpen,
   Loader2,
+  Maximize,
+  Minimize,
+  Maximize2,
 } from "lucide-react";
 import type { GridStyle } from "../types/whiteboard";
 
@@ -24,6 +27,9 @@ interface HeaderBarProps {
   onExport: () => void;
   onExportNotesPdf: () => void;
   isExportingNotes?: boolean;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  onFitToScreen?: () => void;
   onClear: () => void;
   onOpenShortcuts: () => void;
   isPenActive: boolean;
@@ -39,6 +45,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onExport,
   onExportNotesPdf,
   isExportingNotes = false,
+  isFullscreen = false,
+  onToggleFullscreen,
+  onFitToScreen,
   onClear,
   onOpenShortcuts,
   isPenActive,
@@ -279,6 +288,46 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             {isExportingNotes ? "Exporting..." : "Notes PDF"}
           </span>
         </button>
+
+        {/* Fit Slide to Screen (Proper Full View) */}
+        {onFitToScreen && (
+          <button
+            onClick={onFitToScreen}
+            title="Fit Slide to Full Screen (0 / Ctrl+0)"
+            className="
+              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+              text-sky-300 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30
+              transition-all duration-150 active:scale-95
+            "
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Fit Slide</span>
+          </button>
+        )}
+
+        {/* Fullscreen Presentation Mode Toggle */}
+        {onToggleFullscreen && (
+          <button
+            onClick={onToggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen (F / Esc)" : "Enter Fullscreen Presentation Mode (F)"}
+            className={`
+              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+              transition-all duration-150 active:scale-95
+              ${
+                isFullscreen
+                  ? "text-purple-300 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/40 shadow-md shadow-purple-500/20"
+                  : "text-zinc-300 bg-white/[0.05] hover:bg-white/[0.12] hover:text-white border border-white/5"
+              }
+            `}
+          >
+            {isFullscreen ? (
+              <Minimize className="w-3.5 h-3.5 text-purple-300" />
+            ) : (
+              <Maximize className="w-3.5 h-3.5 text-zinc-400" />
+            )}
+            <span className="hidden sm:inline">{isFullscreen ? "Exit Full" : "Fullscreen"}</span>
+          </button>
+        )}
 
         {/* Clear Canvas with Safety Confirmation */}
         <button
