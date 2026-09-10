@@ -377,40 +377,76 @@ export const Whiteboard: React.FC = () => {
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.zoom, cam.zoom);
 
-    // 3.5. Render 16:9 Presentation Blackboard Stage Frame
+    // 3.5. Render Bounded Slide Sheet
     const slideW = 1920;
     const slideH = 1080;
     const slideX = -slideW / 2;
     const slideY = -slideH / 2;
+    const currentSlideForBg = slidesRef.current[currentSlideIndexRef.current];
+    const slideBg = currentSlideForBg?.backgroundColor;
 
     ctx.save();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-    ctx.lineWidth = 1.5 / cam.zoom;
-    if (typeof ctx.roundRect === "function") {
+    if (isFiniteModeRef.current && slideBg) {
+      // ── Finite mode: fill sheet with slide background colour ──────────────
+      // Drop shadow around the sheet
+      ctx.shadowColor = "rgba(0,0,0,0.35)";
+      ctx.shadowBlur = 32 / cam.zoom;
+      ctx.shadowOffsetY = 8 / cam.zoom;
+      ctx.fillStyle = slideBg;
+      ctx.fillRect(slideX, slideY, slideW, slideH);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+
+      // Thin sheet border
+      ctx.strokeStyle = "rgba(0,0,0,0.18)";
+      ctx.lineWidth = 1.5 / cam.zoom;
+      ctx.strokeRect(slideX, slideY, slideW, slideH);
+
+      // ── Grid overlay inside the sheet ─────────────────────────────────────
+      const gridSpacing = 40; // world units
+      ctx.strokeStyle = "rgba(0,0,0,0.07)";
+      ctx.lineWidth = 0.8 / cam.zoom;
       ctx.beginPath();
-      ctx.roundRect(slideX, slideY, slideW, slideH, 12 / cam.zoom);
+      // vertical lines
+      for (let gx = slideX; gx <= slideX + slideW; gx += gridSpacing) {
+        ctx.moveTo(gx, slideY);
+        ctx.lineTo(gx, slideY + slideH);
+      }
+      // horizontal lines
+      for (let gy = slideY; gy <= slideY + slideH; gy += gridSpacing) {
+        ctx.moveTo(slideX, gy);
+        ctx.lineTo(slideX + slideW, gy);
+      }
       ctx.stroke();
     } else {
-      ctx.strokeRect(slideX, slideY, slideW, slideH);
-    }
-
-    // Corner crosshairs for 16:9 widescreen registration
-    const markLen = 16 / cam.zoom;
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
-    ctx.lineWidth = 1.2 / cam.zoom;
-    const stageCorners = [
-      [slideX, slideY, 1, 1],
-      [slideX + slideW, slideY, -1, 1],
-      [slideX, slideY + slideH, 1, -1],
-      [slideX + slideW, slideY + slideH, -1, -1],
-    ];
-    for (const [cx, cy, dx, dy] of stageCorners) {
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + dx * markLen, cy);
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx, cy + dy * markLen);
-      ctx.stroke();
+      // ── Infinite canvas: subtle ghost outline only ─────────────────────────
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.lineWidth = 1.5 / cam.zoom;
+      if (typeof ctx.roundRect === "function") {
+        ctx.beginPath();
+        ctx.roundRect(slideX, slideY, slideW, slideH, 12 / cam.zoom);
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(slideX, slideY, slideW, slideH);
+      }
+      // Corner crosshairs
+      const markLen = 16 / cam.zoom;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+      ctx.lineWidth = 1.2 / cam.zoom;
+      const stageCorners = [
+        [slideX, slideY, 1, 1],
+        [slideX + slideW, slideY, -1, 1],
+        [slideX, slideY + slideH, 1, -1],
+        [slideX + slideW, slideY + slideH, -1, -1],
+      ];
+      for (const [cx, cy, dx, dy] of stageCorners) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + (dx as number) * markLen, cy);
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx, cy + (dy as number) * markLen);
+        ctx.stroke();
+      }
     }
     ctx.restore();
 
@@ -993,6 +1029,16 @@ export const Whiteboard: React.FC = () => {
     }
   }, []);
 
+  // ── Finite Sheet Mode (bounded canvas for PDF presentation) ─────────────────
+  // When true the canvas is a limited page; when false it is the infinite canvas.
+  const [isFiniteMode, setIsFiniteMode] = useState(false);
+  const isFiniteModeRef = useRef(false);
+  isFiniteModeRef.current = isFiniteMode;
+
+  const toggleFiniteMode = useCallback(() => {
+    setIsFiniteMode((prev) => !prev);
+  }, []);
+
   // ── Fit Current Slide / PDF Page to Viewport Screen (Proper Full View) ────────
   const handleFitToScreen = useCallback((
     targetW?: number,
@@ -1071,6 +1117,8 @@ export const Whiteboard: React.FC = () => {
       texts: [],
       notes: [],
       images: [],
+      // Blank slides render as a light grey sheet
+      backgroundColor: "#e8e8e8",
     };
     const insertIdx = currentSlideIndexRef.current + 1;
     const nextDeck = [
@@ -1176,6 +1224,8 @@ export const Whiteboard: React.FC = () => {
             texts: [],
             notes: [],
             images: [pageImage],
+            // PDF slides use white background; blank slides added later get grey
+            backgroundColor: "#ffffff",
           };
         });
 
@@ -1185,6 +1235,13 @@ export const Whiteboard: React.FC = () => {
         setCurrentSlideIndex(0);
         loadSlide(newDeck[0]);
         setPendingPdf(null);
+
+        // Enter finite-sheet presentation mode + fullscreen
+        setIsFiniteMode(true);
+        isFiniteModeRef.current = true;
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
 
         setTimeout(() => {
           const firstImg = newDeck[0].images[0];
@@ -1223,6 +1280,13 @@ export const Whiteboard: React.FC = () => {
         setSelectedImageId(newImage.id);
         setPendingPdf(null);
         scheduleRedraw();
+
+        // Enter finite-sheet presentation mode + fullscreen
+        setIsFiniteMode(true);
+        isFiniteModeRef.current = true;
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
 
         setTimeout(() => {
           handleFitToScreen(slideW, slideH, -slideW / 2, -slideH / 2);
@@ -2627,6 +2691,11 @@ export const Whiteboard: React.FC = () => {
         isFullscreen={isFullscreen}
         onToggleFullscreen={toggleFullscreen}
         onFitToScreen={handleFitToScreen}
+        isFiniteMode={isFiniteMode}
+        onToggleFiniteMode={() => {
+          toggleFiniteMode();
+          scheduleRedraw();
+        }}
         onClear={handleClear}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         isPenActive={isLiveStylus}

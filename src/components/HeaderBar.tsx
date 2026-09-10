@@ -15,6 +15,7 @@ import {
   Maximize,
   Minimize,
   Maximize2,
+  Layers,
 } from "lucide-react";
 import type { GridStyle } from "../types/whiteboard";
 
@@ -30,6 +31,8 @@ interface HeaderBarProps {
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   onFitToScreen?: () => void;
+  isFiniteMode?: boolean;
+  onToggleFiniteMode?: () => void;
   onClear: () => void;
   onOpenShortcuts: () => void;
   isPenActive: boolean;
@@ -48,6 +51,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   isFullscreen = false,
   onToggleFullscreen,
   onFitToScreen,
+  isFiniteMode = false,
+  onToggleFiniteMode,
   onClear,
   onOpenShortcuts,
   isPenActive,
@@ -302,6 +307,26 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           >
             <Maximize2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Fit Slide</span>
+          </button>
+        )}
+
+        {/* Finite / Infinite Canvas Mode Toggle */}
+        {onToggleFiniteMode && (
+          <button
+            onClick={onToggleFiniteMode}
+            title={isFiniteMode ? "Switch to Infinite Canvas (free draw)" : "Switch to Finite Sheet Mode (bounded page)"}
+            className={`
+              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+              transition-all duration-150 active:scale-95
+              ${
+                isFiniteMode
+                  ? "text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40"
+                  : "text-zinc-300 bg-white/[0.05] hover:bg-white/[0.12] hover:text-white border border-white/5"
+              }
+            `}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{isFiniteMode ? "Sheet" : "Infinite"}</span>
           </button>
         )}
 

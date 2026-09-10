@@ -145,4 +145,5 @@ export interface Slide {
   notes: StickyNote[];
   images: PastedImage[];
   gridStyle?: GridStyle;
+  backgroundColor?: string;
 }
