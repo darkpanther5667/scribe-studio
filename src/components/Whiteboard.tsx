@@ -765,6 +765,9 @@ export const Whiteboard: React.FC = () => {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
 
+      // In finite sheet mode the view is locked — no scroll or zoom allowed
+      if (isFiniteModeRef.current) return;
+
       const rect = canvas.getBoundingClientRect();
       const cursorX = e.clientX - rect.left;
       const cursorY = e.clientY - rect.top;
@@ -1036,7 +1039,20 @@ export const Whiteboard: React.FC = () => {
   isFiniteModeRef.current = isFiniteMode;
 
   const toggleFiniteMode = useCallback(() => {
-    setIsFiniteMode((prev) => !prev);
+    setIsFiniteMode((prev) => {
+      const next = !prev;
+      isFiniteModeRef.current = next;
+      if (next) {
+        // Entering sheet mode: switch to a dark pen color so it's visible on the sheet
+        setColor("#1a1a2e");
+        colorRef.current = "#1a1a2e";
+      } else {
+        // Exiting to infinite canvas: restore bright white pen
+        setColor("#FFFFFF");
+        colorRef.current = "#FFFFFF";
+      }
+      return next;
+    });
   }, []);
 
   // ── Fit Current Slide / PDF Page to Viewport Screen (Proper Full View) ────────
@@ -1239,6 +1255,9 @@ export const Whiteboard: React.FC = () => {
         // Enter finite-sheet presentation mode + fullscreen
         setIsFiniteMode(true);
         isFiniteModeRef.current = true;
+        // Switch to dark pen so annotations are visible on the light slide
+        setColor("#1a1a2e");
+        colorRef.current = "#1a1a2e";
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(() => {});
         }
@@ -1284,6 +1303,9 @@ export const Whiteboard: React.FC = () => {
         // Enter finite-sheet presentation mode + fullscreen
         setIsFiniteMode(true);
         isFiniteModeRef.current = true;
+        // Switch to dark pen so annotations are visible on the light slide
+        setColor("#1a1a2e");
+        colorRef.current = "#1a1a2e";
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(() => {});
         }
@@ -1860,9 +1882,10 @@ export const Whiteboard: React.FC = () => {
       const isAutoEraser = isBarrelPressed || isTailEraser;
       const isEraseMode = isAutoEraser || modeRef.current === "erase";
 
-      // 1. Pan Action
+      // 1. Pan Action — disabled in finite sheet mode (view is locked to slide)
       const isPanTriggered =
         !isEraseMode &&
+        !isFiniteModeRef.current &&
         (isSpaceHeldRef.current || e.button === 1 || modeRef.current === "pan");
 
       if (isPanTriggered) {
@@ -2036,8 +2059,10 @@ export const Whiteboard: React.FC = () => {
       }
 
       // 6. Image Drag / Select
+      // In finite sheet mode, PDF page images are locked (they ARE the slide background)
       const hitImage = findHitImage(worldPoint.x, worldPoint.y);
-      if (hitImage && (e.altKey || hitImage.id === selectedImageIdRef.current)) {
+      const isLockedPdf = isFiniteModeRef.current && hitImage?.isPdfPage;
+      if (!isLockedPdf && hitImage && (e.altKey || hitImage.id === selectedImageIdRef.current)) {
         setSelectedImageId(hitImage.id);
         isDraggingImageRef.current = true;
         dragImageOffsetRef.current = {
@@ -2049,9 +2074,9 @@ export const Whiteboard: React.FC = () => {
         return;
       }
 
-      if (hitImage) {
+      if (!isLockedPdf && hitImage) {
         setSelectedImageId(hitImage.id);
-      } else {
+      } else if (!hitImage) {
         setSelectedImageId(null);
       }
 
