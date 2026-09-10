@@ -27,7 +27,13 @@ export interface Stroke {
 }
 
 /** Geometric shapes for teaching (Math, Physics, Diagrams) */
-export type ShapeType = "line" | "arrow" | "rectangle" | "circle" | "triangle";
+export type ShapeType =
+  | "line"
+  | "arrow"
+  | "rectangle"
+  | "circle"
+  | "triangle"
+  | "coordinate_plane";
 
 export interface ShapeItem {
   id: string;
@@ -102,6 +108,7 @@ export type ToolMode =
   | "rectangle"
   | "circle"
   | "triangle"
+  | "coordinate_plane"
   | "text"
   | "note"
   | "laser"
@@ -127,3 +134,15 @@ export type ResizeHandle = "nw" | "ne" | "sw" | "se";
 
 /** Stylus tablet pressure calibration curves */
 export type PressureCurve = "soft" | "medium" | "firm" | "off";
+
+/** A single presentation slide in the educator's lecture deck */
+export interface Slide {
+  id: string;
+  title?: string;
+  strokes: Stroke[];
+  shapes: ShapeItem[];
+  texts: TextItem[];
+  notes: StickyNote[];
+  images: PastedImage[];
+  gridStyle?: GridStyle;
+}

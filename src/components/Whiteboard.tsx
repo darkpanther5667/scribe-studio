@@ -20,6 +20,7 @@ import type {
   StrokeWidth,
   TextItem,
   ToolMode,
+  Slide,
 } from "../types/whiteboard";
 import { STROKE_WIDTH_MAP } from "../types/whiteboard";
 import {
@@ -39,6 +40,8 @@ import { classifyStroke } from "../utils/smartInkRecognition";
 import { Toolbar } from "./Toolbar";
 import { HeaderBar } from "./HeaderBar";
 import { ShortcutsModal } from "./ShortcutsModal";
+import { SlideTray } from "./SlideTray";
+import { exportClassNotesPdf } from "../utils/pdfNotesExporter";
 import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon, Type } from "lucide-react";
 
 // ─── perfect-freehand options factory ────────────────────────────────────────
@@ -169,6 +172,19 @@ export const Whiteboard: React.FC = () => {
 
   // ── Native PDF Document Import State ─────────────────────────────────────────
   const [pendingPdf, setPendingPdf] = useState<{ pdf: LoadedPdf; fileSize: number } | null>(null);
+
+  // ── Multi-Slide Presentation Deck Architecture (Unacademy-grade) ─────────
+  const [slides, setSlides] = useState<Slide[]>([
+    { id: "slide-1", strokes: [], shapes: [], texts: [], notes: [], images: [] },
+  ]);
+  const slidesRef = useRef<Slide[]>(slides);
+  slidesRef.current = slides;
+
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const currentSlideIndexRef = useRef(0);
+  currentSlideIndexRef.current = currentSlideIndex;
+
+  const [isExportingNotes, setIsExportingNotes] = useState(false);
 
   // ── Lasso Selection State & Refs ─────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<SelectionState>(EMPTY_SELECTION);
@@ -529,6 +545,24 @@ export const Whiteboard: React.FC = () => {
         ctx.restore();
       }
 
+      // Unacademy Pulsing Laser Ripple Orb at the tip for mobile learners
+      if (activeLaser.length > 0) {
+        const tip = activeLaser[activeLaser.length - 1];
+        const pulsePhase = (now % 1000) / 1000;
+        const rippleR = (12 + pulsePhase * 26) / cam.zoom;
+        const rippleAlpha = (1 - pulsePhase) * 0.8;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(tip.x, tip.y, rippleR, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(244, 63, 94, ${rippleAlpha})`;
+        ctx.lineWidth = 2.5 / cam.zoom;
+        ctx.shadowColor = "#f43f5e";
+        ctx.shadowBlur = 10 / cam.zoom;
+        ctx.stroke();
+        ctx.restore();
+      }
+
       if (laserTrailRef.current.length > 0) {
         scheduleRedraw();
       }
@@ -852,9 +886,185 @@ export const Whiteboard: React.FC = () => {
     };
   }, []);
 
+  // ── Multi-Slide Presentation Deck Management (Unacademy-grade) ───────────────
+  const syncCurrentSlideToDeck = useCallback((): Slide[] => {
+    const deck = slidesRef.current;
+    const currentIndex = currentSlideIndexRef.current;
+    const currentSlide = deck[currentIndex];
+    if (!currentSlide) return deck;
+
+    const updatedSlide: Slide = {
+      ...currentSlide,
+      strokes: [...strokesRef.current],
+      shapes: [...shapesRef.current],
+      texts: [...textsRef.current],
+      notes: [...notesRef.current],
+      images: [...imagesRef.current],
+    };
+
+    const nextDeck = [...deck];
+    nextDeck[currentIndex] = updatedSlide;
+    slidesRef.current = nextDeck;
+    setSlides(nextDeck);
+    return nextDeck;
+  }, []);
+
+  const loadSlide = useCallback((targetSlide: Slide) => {
+    strokesRef.current = targetSlide.strokes;
+    shapesRef.current = targetSlide.shapes;
+    textsRef.current = targetSlide.texts;
+    notesRef.current = targetSlide.notes;
+    imagesRef.current = targetSlide.images;
+
+    setStrokes(targetSlide.strokes);
+    setShapes(targetSlide.shapes);
+    setTexts(targetSlide.texts);
+    setNotes(targetSlide.notes);
+    setImages(targetSlide.images);
+
+    selectedIdsRef.current = EMPTY_SELECTION;
+    setSelectedIds(EMPTY_SELECTION);
+    setSelectedImageId(null);
+    setTextEditor(null);
+    setUndoStack([]);
+    setRedoStack([]);
+    scheduleRedraw();
+  }, [scheduleRedraw]);
+
+  const handleSelectSlide = useCallback((targetIndex: number) => {
+    if (
+      targetIndex < 0 ||
+      targetIndex >= slidesRef.current.length ||
+      targetIndex === currentSlideIndexRef.current
+    ) {
+      return;
+    }
+    const latestDeck = syncCurrentSlideToDeck();
+    currentSlideIndexRef.current = targetIndex;
+    setCurrentSlideIndex(targetIndex);
+    loadSlide(latestDeck[targetIndex]);
+  }, [syncCurrentSlideToDeck, loadSlide]);
+
+  const handleAddBlankSlide = useCallback(() => {
+    const latestDeck = syncCurrentSlideToDeck();
+    const newSlide: Slide = {
+      id: crypto.randomUUID(),
+      title: `Slide ${latestDeck.length + 1}`,
+      strokes: [],
+      shapes: [],
+      texts: [],
+      notes: [],
+      images: [],
+    };
+    const insertIdx = currentSlideIndexRef.current + 1;
+    const nextDeck = [
+      ...latestDeck.slice(0, insertIdx),
+      newSlide,
+      ...latestDeck.slice(insertIdx),
+    ];
+    slidesRef.current = nextDeck;
+    setSlides(nextDeck);
+    currentSlideIndexRef.current = insertIdx;
+    setCurrentSlideIndex(insertIdx);
+    loadSlide(newSlide);
+  }, [syncCurrentSlideToDeck, loadSlide]);
+
+  const handleDuplicateSlide = useCallback((index: number) => {
+    const latestDeck = syncCurrentSlideToDeck();
+    const sourceSlide = latestDeck[index];
+    if (!sourceSlide) return;
+
+    const clonedSlide: Slide = {
+      ...sourceSlide,
+      id: crypto.randomUUID(),
+      title: `${sourceSlide.title || `Slide ${index + 1}`} (Copy)`,
+      strokes: sourceSlide.strokes.map((s) => ({
+        ...s,
+        id: crypto.randomUUID(),
+        points: [...s.points],
+      })),
+      shapes: sourceSlide.shapes.map((sh) => ({ ...sh, id: crypto.randomUUID() })),
+      texts: sourceSlide.texts.map((t) => ({ ...t, id: crypto.randomUUID() })),
+      notes: sourceSlide.notes.map((n) => ({ ...n, id: crypto.randomUUID() })),
+      images: sourceSlide.images.map((img) => ({ ...img, id: crypto.randomUUID() })),
+    };
+
+    const nextDeck = [
+      ...latestDeck.slice(0, index + 1),
+      clonedSlide,
+      ...latestDeck.slice(index + 1),
+    ];
+    slidesRef.current = nextDeck;
+    setSlides(nextDeck);
+    currentSlideIndexRef.current = index + 1;
+    setCurrentSlideIndex(index + 1);
+    loadSlide(clonedSlide);
+  }, [syncCurrentSlideToDeck, loadSlide]);
+
+  const handleDeleteSlide = useCallback((index: number) => {
+    if (slidesRef.current.length <= 1) return;
+    const latestDeck = syncCurrentSlideToDeck();
+    const nextDeck = latestDeck.filter((_, i) => i !== index);
+    const newActiveIdx = Math.min(index, nextDeck.length - 1);
+    slidesRef.current = nextDeck;
+    setSlides(nextDeck);
+    currentSlideIndexRef.current = newActiveIdx;
+    setCurrentSlideIndex(newActiveIdx);
+    loadSlide(nextDeck[newActiveIdx]);
+  }, [syncCurrentSlideToDeck, loadSlide]);
+
+  const handleExportNotesPdf = useCallback(async () => {
+    if (isExportingNotes) return;
+    setIsExportingNotes(true);
+    try {
+      const latestDeck = syncCurrentSlideToDeck();
+      await exportClassNotesPdf(latestDeck, lectureTitle);
+    } catch (err) {
+      console.error("Failed to export class notes PDF:", err);
+    } finally {
+      setIsExportingNotes(false);
+    }
+  }, [isExportingNotes, syncCurrentSlideToDeck, lectureTitle]);
+
   // ── Import Rendered PDF Pages to Canvas ─────────────────────────────────────
   const handleImportPdfPages = useCallback(
     (pages: RenderedPdfPage[], layout: PdfLayoutMode) => {
+      // If multi-page PDF, generate lecture slide deck (Unacademy masterclass workflow)
+      if (pages.length > 1) {
+        const newDeck: Slide[] = pages.map((p, idx) => {
+          const pageImage: PastedImage = {
+            id: crypto.randomUUID(),
+            url: p.dataUrl,
+            imgElement: p.imgElement,
+            x: -p.worldWidth / 2,
+            y: -p.worldHeight / 2,
+            width: p.worldWidth,
+            height: p.worldHeight,
+            isPdfPage: true,
+            pdfName: pendingPdf?.pdf.fileName,
+            pageNumber: p.pageNumber,
+            totalPages: pendingPdf?.pdf.numPages,
+          };
+          return {
+            id: `slide-${idx + 1}-${crypto.randomUUID().slice(0, 8)}`,
+            title: `Slide ${idx + 1} • Page ${p.pageNumber}`,
+            strokes: [],
+            shapes: [],
+            texts: [],
+            notes: [],
+            images: [pageImage],
+          };
+        });
+
+        slidesRef.current = newDeck;
+        setSlides(newDeck);
+        currentSlideIndexRef.current = 0;
+        setCurrentSlideIndex(0);
+        loadSlide(newDeck[0]);
+        setPendingPdf(null);
+        return;
+      }
+
       const cam = cameraRef.current;
       const canvas = canvasRef.current;
       const viewW = canvas?.offsetWidth ?? window.innerWidth;
@@ -907,7 +1117,7 @@ export const Whiteboard: React.FC = () => {
       setPendingPdf(null);
       scheduleRedraw();
     },
-    [pendingPdf, takeSnapshot, scheduleRedraw]
+    [pendingPdf, takeSnapshot, scheduleRedraw, loadSlide]
   );
 
   const restoreSnapshot = useCallback((snap: BoardSnapshot) => {
@@ -1150,6 +1360,25 @@ export const Whiteboard: React.FC = () => {
         }
       }
 
+      // Add Blank Presentation Slide (Ctrl + Enter) - Unacademy signature
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleAddBlankSlide();
+        return;
+      }
+
+      // Slide Navigation (PageDown / PageUp)
+      if (e.key === "PageDown") {
+        e.preventDefault();
+        handleSelectSlide(currentSlideIndexRef.current + 1);
+        return;
+      }
+      if (e.key === "PageUp") {
+        e.preventDefault();
+        handleSelectSlide(currentSlideIndexRef.current - 1);
+        return;
+      }
+
       // Delete Selection or Image
       if (e.key === "Delete" || e.key === "Backspace") {
         if (hasSelectedElements(selectedIdsRef.current)) {
@@ -1195,6 +1424,9 @@ export const Whiteboard: React.FC = () => {
           break;
         case "y":
           setMode("triangle");
+          break;
+        case "x":
+          setMode("coordinate_plane");
           break;
         case "t":
           setMode("text");
@@ -1246,7 +1478,7 @@ export const Whiteboard: React.FC = () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [handleUndo, handleRedo, scheduleRedraw]);
+  }, [handleUndo, handleRedo, handleAddBlankSlide, handleSelectSlide, scheduleRedraw]);
 
   // ── Hit-testing images and resize handles ────────────────────────────────────
   const hitTestImageHandle = (
@@ -1523,14 +1755,15 @@ export const Whiteboard: React.FC = () => {
         return;
       }
 
-      // 4. Geometric Shapes: Line, Arrow, Rect, Circle, Triangle
+      // 4. Geometric Shapes: Line, Arrow, Rect, Circle, Triangle, Coordinate Plane
       const m = modeRef.current;
       if (
         m === "line" ||
         m === "arrow" ||
         m === "rectangle" ||
         m === "circle" ||
-        m === "triangle"
+        m === "triangle" ||
+        m === "coordinate_plane"
       ) {
         isDrawingShapeRef.current = true;
         snapshotBeforeGestureRef.current = takeSnapshot();
@@ -2000,8 +2233,20 @@ export const Whiteboard: React.FC = () => {
       const finishedShape = activeShapeRef.current;
       activeShapeRef.current = null;
 
-      const w = Math.abs(finishedShape.x2 - finishedShape.x1);
-      const h = Math.abs(finishedShape.y2 - finishedShape.y1);
+      let w = Math.abs(finishedShape.x2 - finishedShape.x1);
+      let h = Math.abs(finishedShape.y2 - finishedShape.y1);
+
+      // If coordinate plane was single-tapped/clicked without dragging, auto-stamp 360x360
+      if (finishedShape.type === "coordinate_plane" && w <= 4 && h <= 4) {
+        const cx = finishedShape.x1;
+        const cy = finishedShape.y1;
+        finishedShape.x1 = cx - 180;
+        finishedShape.y1 = cy - 180;
+        finishedShape.x2 = cx + 180;
+        finishedShape.y2 = cy + 180;
+        w = 360;
+        h = 360;
+      }
 
       if (w > 4 || h > 4) {
         if (snapshotBeforeGestureRef.current) {
@@ -2209,6 +2454,8 @@ export const Whiteboard: React.FC = () => {
         }}
         onPdfUpload={handlePdfUpload}
         onExport={handleExport}
+        onExportNotesPdf={handleExportNotesPdf}
+        isExportingNotes={isExportingNotes}
         onClear={handleClear}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         isPenActive={isLiveStylus}
@@ -2440,6 +2687,16 @@ export const Whiteboard: React.FC = () => {
       <ShortcutsModal
         isOpen={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
+      />
+
+      {/* ── Unacademy Slide Controller & Drawer ── */}
+      <SlideTray
+        slides={slides}
+        currentSlideIndex={currentSlideIndex}
+        onSelectSlide={handleSelectSlide}
+        onAddBlankSlide={handleAddBlankSlide}
+        onDuplicateSlide={() => handleDuplicateSlide(currentSlideIndex)}
+        onDeleteSlide={() => handleDeleteSlide(currentSlideIndex)}
       />
     </div>
   );

@@ -10,6 +10,8 @@ import {
   Trash2,
   PenTool,
   MousePointer2,
+  BookOpen,
+  Loader2,
 } from "lucide-react";
 import type { GridStyle } from "../types/whiteboard";
 
@@ -20,6 +22,8 @@ interface HeaderBarProps {
   onGridChange: (grid: GridStyle) => void;
   onPdfUpload: (file: File) => void;
   onExport: () => void;
+  onExportNotesPdf: () => void;
+  isExportingNotes?: boolean;
   onClear: () => void;
   onOpenShortcuts: () => void;
   isPenActive: boolean;
@@ -33,6 +37,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onGridChange,
   onPdfUpload,
   onExport,
+  onExportNotesPdf,
+  isExportingNotes = false,
   onClear,
   onOpenShortcuts,
   isPenActive,
@@ -249,7 +255,29 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           "
         >
           <Download className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Export</span>
+          <span className="hidden sm:inline">PNG</span>
+        </button>
+
+        {/* Export Multi-Page Annotated Class Notes PDF */}
+        <button
+          onClick={onExportNotesPdf}
+          disabled={isExportingNotes}
+          title="Export Multi-Page Annotated Class Notes PDF (All Slides Combined)"
+          className={`
+            flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+            text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30
+            transition-all duration-150 active:scale-95
+            ${isExportingNotes ? "opacity-60 cursor-wait" : ""}
+          `}
+        >
+          {isExportingNotes ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-300" />
+          ) : (
+            <BookOpen className="w-3.5 h-3.5" />
+          )}
+          <span className="hidden md:inline">
+            {isExportingNotes ? "Exporting..." : "Notes PDF"}
+          </span>
         </button>
 
         {/* Clear Canvas with Safety Confirmation */}

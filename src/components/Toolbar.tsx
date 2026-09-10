@@ -20,6 +20,7 @@ import {
   Plus,
   RotateCcw,
   Palette,
+  Crosshair,
 } from "lucide-react";
 import type {
   StrokeColor,
@@ -78,6 +79,7 @@ const SHAPES_LIST: { mode: ShapeType; label: string; icon: React.ReactNode; shor
   { mode: "rectangle", label: "Rectangle", icon: <Square className="w-3.5 h-3.5" />, shortcut: "R" },
   { mode: "circle", label: "Circle / Ellipse", icon: <Circle className="w-3.5 h-3.5" />, shortcut: "C" },
   { mode: "triangle", label: "Triangle", icon: <Triangle className="w-3.5 h-3.5" />, shortcut: "Y" },
+  { mode: "coordinate_plane", label: "Coordinate Plane (X-Y)", icon: <Crosshair className="w-3.5 h-3.5" />, shortcut: "X" },
 ];
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -111,7 +113,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     mode === "arrow" ||
     mode === "rectangle" ||
     mode === "circle" ||
-    mode === "triangle";
+    mode === "triangle" ||
+    mode === "coordinate_plane";
 
   const getActiveShapeIcon = () => {
     switch (mode) {
@@ -125,6 +128,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         return <Circle className="w-3.5 h-3.5" />;
       case "triangle":
         return <Triangle className="w-3.5 h-3.5" />;
+      case "coordinate_plane":
+        return <Crosshair className="w-3.5 h-3.5" />;
       default:
         return <Shapes className="w-3.5 h-3.5" />;
     }

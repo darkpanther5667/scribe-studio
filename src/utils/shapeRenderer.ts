@@ -130,6 +130,78 @@ export function drawShape(
       ctx.stroke();
       break;
     }
+
+    case "coordinate_plane": {
+      const cx = (x1 + x2) / 2;
+      const cy = (y1 + y2) / 2;
+
+      // X-Axis (Horizontal)
+      ctx.beginPath();
+      ctx.moveTo(minX, cy);
+      ctx.lineTo(maxX, cy);
+      // Y-Axis (Vertical)
+      ctx.moveTo(cx, minY);
+      ctx.lineTo(cx, maxY);
+      ctx.stroke();
+
+      // Draw arrows at ends
+      const arrLen = Math.max(10, strokeSize * 2.5);
+      ctx.beginPath();
+      // Right (+X)
+      ctx.moveTo(maxX, cy);
+      ctx.lineTo(maxX - arrLen, cy - arrLen * 0.5);
+      ctx.moveTo(maxX, cy);
+      ctx.lineTo(maxX - arrLen, cy + arrLen * 0.5);
+      // Left (-X)
+      ctx.moveTo(minX, cy);
+      ctx.lineTo(minX + arrLen, cy - arrLen * 0.5);
+      ctx.moveTo(minX, cy);
+      ctx.lineTo(minX + arrLen, cy + arrLen * 0.5);
+      // Top (+Y)
+      ctx.moveTo(cx, minY);
+      ctx.lineTo(cx - arrLen * 0.5, minY + arrLen);
+      ctx.moveTo(cx, minY);
+      ctx.lineTo(cx + arrLen * 0.5, minY + arrLen);
+      // Bottom (-Y)
+      ctx.moveTo(cx, maxY);
+      ctx.lineTo(cx - arrLen * 0.5, maxY - arrLen);
+      ctx.moveTo(cx, maxY);
+      ctx.lineTo(cx + arrLen * 0.5, maxY - arrLen);
+      ctx.stroke();
+
+      // Axis Ticks
+      const tickStep = Math.max(24, Math.min(w, h) / 8);
+      const tickSize = 3;
+      ctx.beginPath();
+      for (let tx = cx + tickStep; tx < maxX - arrLen; tx += tickStep) {
+        ctx.moveTo(tx, cy - tickSize);
+        ctx.lineTo(tx, cy + tickSize);
+      }
+      for (let tx = cx - tickStep; tx > minX + arrLen; tx -= tickStep) {
+        ctx.moveTo(tx, cy - tickSize);
+        ctx.lineTo(tx, cy + tickSize);
+      }
+      for (let ty = cy + tickStep; ty < maxY - arrLen; ty += tickStep) {
+        ctx.moveTo(cx - tickSize, ty);
+        ctx.lineTo(cx + tickSize, ty);
+      }
+      for (let ty = cy - tickStep; ty > minY + arrLen; ty -= tickStep) {
+        ctx.moveTo(cx - tickSize, ty);
+        ctx.lineTo(cx + tickSize, ty);
+      }
+      ctx.stroke();
+
+      // Labels "+X", "+Y", "O"
+      ctx.save();
+      const labelFontSize = Math.max(10, 11 / zoom);
+      ctx.font = `600 ${labelFontSize}px monospace`;
+      ctx.fillStyle = color;
+      ctx.fillText("+X", maxX - arrLen - 12, cy - 6);
+      ctx.fillText("+Y", cx + 6, minY + arrLen + 10);
+      ctx.fillText("O", cx - 12, cy + 14);
+      ctx.restore();
+      break;
+    }
   }
 
   ctx.restore();
@@ -245,6 +317,18 @@ export function shapeIntersectsEraser(
         distToSegmentSquared(ex, ey, topX, topY, x2, y2) <= radiusSq ||
         distToSegmentSquared(ex, ey, x2, y2, x1, y2) <= radiusSq ||
         distToSegmentSquared(ex, ey, x1, y2, topX, topY) <= radiusSq
+      );
+    }
+    case "coordinate_plane": {
+      const cx = (x1 + x2) / 2;
+      const cy = (y1 + y2) / 2;
+      const minX = Math.min(x1, x2);
+      const maxX = Math.max(x1, x2);
+      const minY = Math.min(y1, y2);
+      const maxY = Math.max(y1, y2);
+      return (
+        distToSegmentSquared(ex, ey, minX, cy, maxX, cy) <= radiusSq ||
+        distToSegmentSquared(ex, ey, cx, minY, cx, maxY) <= radiusSq
       );
     }
   }
