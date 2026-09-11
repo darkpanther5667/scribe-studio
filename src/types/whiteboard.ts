@@ -112,6 +112,16 @@ export interface Camera {
   zoom: number;
 }
 
+/** Mathematical equation / formula item rendered with KaTeX */
+export interface MathItem {
+  id: string;
+  latex: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  color: string;
+}
+
 /** Active tool mode */
 export type ToolMode =
   | "draw"
@@ -124,6 +134,7 @@ export type ToolMode =
   | "triangle"
   | "coordinate_plane"
   | "text"
+  | "math"
   | "note"
   | "laser"
   | "erase"
@@ -158,6 +169,7 @@ export interface Slide {
   texts: TextItem[];
   notes: StickyNote[];
   images: PastedImage[];
+  maths?: MathItem[];
   gridStyle?: GridStyle;
   backgroundColor?: string;
 }

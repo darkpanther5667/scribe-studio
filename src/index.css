@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
 
 /* ── Slide-in animation for left sidebar toolbar (finite sheet mode) ── */
 @keyframes slideInLeft {

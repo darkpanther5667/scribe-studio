@@ -22,6 +22,7 @@ import type {
   TextItem,
   ToolMode,
   Slide,
+  MathItem,
 } from "../types/whiteboard";
 import { STROKE_WIDTH_MAP } from "../types/whiteboard";
 import {
@@ -43,6 +44,16 @@ import { HeaderBar } from "./HeaderBar";
 import { ShortcutsModal } from "./ShortcutsModal";
 import { SlideTray } from "./SlideTray";
 import { exportClassNotesPdf } from "../utils/pdfNotesExporter";
+import {
+  saveLectureToStorage,
+  loadLectureFromStorage,
+  exportTapboardFile,
+  parseTapboardFile,
+} from "../utils/projectPersistence";
+import { drawMathItem } from "../utils/mathRenderer";
+import { MathFormulaModal } from "./MathFormulaModal";
+import { lectureRecorder, type RecorderState } from "../utils/lectureRecorder";
+import { LectureRecorderWidget } from "./LectureRecorderWidget";
 import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon } from "lucide-react";
 
 // ─── Pen style → perfect-freehand options ────────────────────────────────────
@@ -202,6 +213,7 @@ interface BoardSnapshot {
   texts: TextItem[];
   notes: StickyNote[];
   images: PastedImage[];
+  maths: MathItem[];
 }
 
 export const Whiteboard: React.FC = () => {
@@ -264,6 +276,20 @@ export const Whiteboard: React.FC = () => {
   const [images, setImages] = useState<PastedImage[]>([]);
   const imagesRef = useRef<PastedImage[]>(images);
   imagesRef.current = images;
+
+  const [maths, setMaths] = useState<MathItem[]>([]);
+  const mathsRef = useRef<MathItem[]>(maths);
+  mathsRef.current = maths;
+
+  const [isMathModalOpen, setIsMathModalOpen] = useState(false);
+  const [pendingMathPos, setPendingMathPos] = useState<{ x: number; y: number } | null>(null);
+
+  // ── Enterprise Video & Mic Lecture Recorder State ────────────────────────────
+  const [recorderState, setRecorderState] = useState<RecorderState>({
+    isRecording: false,
+    isPaused: false,
+    seconds: 0,
+  });
 
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const selectedImageIdRef = useRef<string | null>(selectedImageId);
@@ -680,6 +706,11 @@ export const Whiteboard: React.FC = () => {
     // 7. Render Typed Text Items
     for (const textItem of textsRef.current) {
       drawText(ctx, textItem, cam.zoom);
+    }
+
+    // 7.5. Render KaTeX Mathematical Equations & Formulas
+    for (const mathItem of mathsRef.current) {
+      drawMathItem(ctx, mathItem, cam.zoom, scheduleRedraw);
     }
 
     // 8. Render Highlighters
@@ -1099,6 +1130,7 @@ export const Whiteboard: React.FC = () => {
       texts: [...textsRef.current],
       notes: [...notesRef.current],
       images: [...imagesRef.current],
+      maths: [...mathsRef.current],
     };
   }, []);
 
@@ -1116,6 +1148,7 @@ export const Whiteboard: React.FC = () => {
       texts: [...textsRef.current],
       notes: [...notesRef.current],
       images: [...imagesRef.current],
+      maths: [...mathsRef.current],
     };
 
     const nextDeck = [...deck];
@@ -1131,12 +1164,15 @@ export const Whiteboard: React.FC = () => {
     textsRef.current = targetSlide.texts;
     notesRef.current = targetSlide.notes;
     imagesRef.current = targetSlide.images;
+    const targetMaths = targetSlide.maths || [];
+    mathsRef.current = targetMaths;
 
     setStrokes(targetSlide.strokes);
     setShapes(targetSlide.shapes);
     setTexts(targetSlide.texts);
     setNotes(targetSlide.notes);
     setImages(targetSlide.images);
+    setMaths(targetMaths);
 
     selectedIdsRef.current = EMPTY_SELECTION;
     setSelectedIds(EMPTY_SELECTION);
@@ -1313,6 +1349,7 @@ export const Whiteboard: React.FC = () => {
       texts: sourceSlide.texts.map((t) => ({ ...t, id: crypto.randomUUID() })),
       notes: sourceSlide.notes.map((n) => ({ ...n, id: crypto.randomUUID() })),
       images: sourceSlide.images.map((img) => ({ ...img, id: crypto.randomUUID() })),
+      maths: (sourceSlide.maths || []).map((m) => ({ ...m, id: crypto.randomUUID() })),
     };
 
     const nextDeck = [
@@ -1351,6 +1388,109 @@ export const Whiteboard: React.FC = () => {
       setIsExportingNotes(false);
     }
   }, [isExportingNotes, syncCurrentSlideToDeck, lectureTitle]);
+
+  // ── Enterprise .tapboard Project Persistence ────────────────────────────────
+  const handleExportTapboard = useCallback(() => {
+    const latestDeck = syncCurrentSlideToDeck();
+    exportTapboardFile({
+      title: lectureTitle,
+      slides: latestDeck,
+      currentSlideIndex: currentSlideIndexRef.current,
+      gridStyle,
+      isFiniteMode: isFiniteModeRef.current,
+    });
+  }, [syncCurrentSlideToDeck, lectureTitle, gridStyle]);
+
+  const handleImportTapboard = useCallback(
+    async (file: File) => {
+      try {
+        const project = await parseTapboardFile(file);
+        setLectureTitle(project.title);
+        setSlides(project.slides);
+        slidesRef.current = project.slides;
+        setGridStyle(project.gridStyle);
+        setIsFiniteMode(project.isFiniteMode);
+        isFiniteModeRef.current = project.isFiniteMode;
+
+        const targetIdx = Math.min(project.currentSlideIndex, project.slides.length - 1);
+        setCurrentSlideIndex(targetIdx);
+        currentSlideIndexRef.current = targetIdx;
+        loadSlide(project.slides[targetIdx]);
+        setTimeout(() => handleFitToScreen(), 50);
+      } catch (err: any) {
+        alert("Failed to load project: " + (err?.message || "Invalid file"));
+      }
+    },
+    [loadSlide, handleFitToScreen]
+  );
+
+  // ── Enterprise Video & Mic Lecture Recording ────────────────────────────────
+  const handleStartRecording = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    await lectureRecorder.startRecording(canvas, lectureTitle);
+  }, [lectureTitle]);
+
+  // ── IndexedDB Auto-Save & Project Restore Lifecycle ─────────────────────────
+  const isLoadedFromStorageRef = useRef(false);
+
+  useEffect(() => {
+    // 1. Restore from IndexedDB on startup
+    (async () => {
+      try {
+        const cached = await loadLectureFromStorage();
+        if (cached && cached.slides && cached.slides.length > 0) {
+          setLectureTitle(cached.title || "Untitled Lecture");
+          setSlides(cached.slides);
+          slidesRef.current = cached.slides;
+          setGridStyle(cached.gridStyle || "dots");
+          setIsFiniteMode(Boolean(cached.isFiniteMode));
+          isFiniteModeRef.current = Boolean(cached.isFiniteMode);
+
+          const targetIdx = Math.min(cached.currentSlideIndex || 0, cached.slides.length - 1);
+          setCurrentSlideIndex(targetIdx);
+          currentSlideIndexRef.current = targetIdx;
+          loadSlide(cached.slides[targetIdx]);
+        }
+      } catch (err) {
+        console.warn("[Tapboard] Auto-restore error:", err);
+      } finally {
+        isLoadedFromStorageRef.current = true;
+      }
+    })();
+
+    // 2. Subscribe to recorder service
+    lectureRecorder.subscribe((s) => setRecorderState(s));
+  }, [loadSlide]);
+
+  // 3. Debounced Auto-Save to IndexedDB on any change
+  useEffect(() => {
+    if (!isLoadedFromStorageRef.current) return;
+    const timer = setTimeout(() => {
+      const currentDeck = syncCurrentSlideToDeck();
+      saveLectureToStorage({
+        title: lectureTitle,
+        slides: currentDeck,
+        currentSlideIndex: currentSlideIndexRef.current,
+        gridStyle,
+        isFiniteMode: isFiniteModeRef.current,
+      });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [
+    slides,
+    strokes,
+    shapes,
+    texts,
+    notes,
+    images,
+    maths,
+    lectureTitle,
+    currentSlideIndex,
+    gridStyle,
+    isFiniteMode,
+    syncCurrentSlideToDeck,
+  ]);
 
   // ── Import Rendered PDF Pages to Canvas ─────────────────────────────────────
   const handleImportPdfPages = useCallback(
@@ -1520,11 +1660,14 @@ export const Whiteboard: React.FC = () => {
     textsRef.current = snap.texts;
     notesRef.current = snap.notes;
     imagesRef.current = snap.images;
+    const snapMaths = snap.maths || [];
+    mathsRef.current = snapMaths;
     setStrokes(snap.strokes);
     setShapes(snap.shapes);
     setTexts(snap.texts);
     setNotes(snap.notes);
     setImages(snap.images);
+    setMaths(snapMaths);
     selectedIdsRef.current = EMPTY_SELECTION;
     setSelectedIds(EMPTY_SELECTION);
     scheduleRedraw();
@@ -1964,6 +2107,36 @@ export const Whiteboard: React.FC = () => {
     [textEditor, takeSnapshot, scheduleRedraw]
   );
 
+  const handleInsertMath = useCallback(
+    (latexCode: string) => {
+      const pos = pendingMathPos || { x: 0, y: 0 };
+      setUndoStack((u) => [...u, takeSnapshot()]);
+      setRedoStack([]);
+
+      const fontSize =
+        strokeWidthRef.current === "thin"
+          ? 22
+          : strokeWidthRef.current === "medium"
+          ? 32
+          : 44;
+
+      const newMathItem: MathItem = {
+        id: crypto.randomUUID(),
+        latex: latexCode,
+        x: pos.x,
+        y: pos.y,
+        fontSize,
+        color: colorRef.current,
+      };
+
+      const next = [...mathsRef.current, newMathItem];
+      mathsRef.current = next;
+      setMaths(next);
+      scheduleRedraw();
+    },
+    [pendingMathPos, takeSnapshot, scheduleRedraw]
+  );
+
   // ── Pointer Handlers ────────────────────────────────────────────────────────
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -2003,6 +2176,12 @@ export const Whiteboard: React.FC = () => {
           text: "",
           isNote: true,
         });
+        return;
+      }
+
+      if (modeRef.current === "math") {
+        setPendingMathPos({ x: worldPoint.x, y: worldPoint.y });
+        setIsMathModalOpen(true);
         return;
       }
 
@@ -2766,11 +2945,14 @@ export const Whiteboard: React.FC = () => {
     shapesRef.current = [];
     textsRef.current = [];
     notesRef.current = [];
+    imagesRef.current = [];
+    mathsRef.current = [];
     setStrokes([]);
     setShapes([]);
     setTexts([]);
     setNotes([]);
     setImages([]);
+    setMaths([]);
     setSelectedImageId(null);
     selectedIdsRef.current = EMPTY_SELECTION;
     setSelectedIds(EMPTY_SELECTION);
@@ -2831,12 +3013,14 @@ export const Whiteboard: React.FC = () => {
         currentSlide.shapes.length === 0 &&
         currentSlide.texts.length === 0 &&
         currentSlide.notes.length === 0 &&
-        currentSlide.images.length === 0)) &&
+        currentSlide.images.length === 0 &&
+        (!currentSlide.maths || currentSlide.maths.length === 0))) &&
     strokes.length === 0 &&
     shapes.length === 0 &&
     texts.length === 0 &&
     notes.length === 0 &&
     images.length === 0 &&
+    maths.length === 0 &&
     !textEditor;
 
   return (
@@ -2860,7 +3044,7 @@ export const Whiteboard: React.FC = () => {
         onPointerCancel={onPointerCancel}
       />
 
-      {/* ── Scribe Studio Top Brand Header & Hardware Telemetry ── */}
+      {/* ── Tapboard Top Brand Header & Telemetry ── */}
       <HeaderBar
         title={lectureTitle}
         onTitleChange={handleTitleChange}
@@ -2885,6 +3069,11 @@ export const Whiteboard: React.FC = () => {
         onOpenShortcuts={() => setShortcutsOpen(true)}
         isPenActive={isLiveStylus}
         currentPressure={livePressure}
+        onExportTapboard={handleExportTapboard}
+        onImportTapboard={handleImportTapboard}
+        onStartRecording={handleStartRecording}
+        isRecording={recorderState.isRecording}
+        isAutoSaved={true}
       />
 
       {/* ── Interactive Inline Text / Sticky Note Input Overlay ── */}
@@ -3215,6 +3404,24 @@ export const Whiteboard: React.FC = () => {
         onDuplicateSlide={() => handleDuplicateSlide(currentSlideIndex)}
         onDeleteSlide={() => handleDeleteSlide(currentSlideIndex)}
         onFitToScreen={handleFitToScreen}
+      />
+
+      {/* ── Enterprise In-Browser Lecture Video & Audio Recorder Widget ── */}
+      <LectureRecorderWidget
+        state={recorderState}
+        onPause={() => lectureRecorder.pauseRecording()}
+        onResume={() => lectureRecorder.resumeRecording()}
+        onStop={() => lectureRecorder.stopRecording()}
+      />
+
+      {/* ── Interactive KaTeX LaTeX Math & Equation Modal ── */}
+      <MathFormulaModal
+        isOpen={isMathModalOpen}
+        onClose={() => {
+          setIsMathModalOpen(false);
+          setPendingMathPos(null);
+        }}
+        onInsert={handleInsertMath}
       />
     </div>
   );

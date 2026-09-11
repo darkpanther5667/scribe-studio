@@ -540,6 +540,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             {!isFiniteMode && <><span className="hidden sm:inline">Text</span><span className="text-[9px] font-mono opacity-50">T</span></>}
           </button>
 
+          {/* Math & LaTeX Formula */}
+          <button
+            onClick={() => { onModeChange("math"); setShapesOpen(false); }}
+            title="Math & LaTeX Formula (M)"
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+              mode === "math"
+                ? "bg-cyan-400 text-zinc-950 font-bold shadow-md shadow-cyan-400/30"
+                : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            <span className="font-serif italic font-bold text-xs leading-none">√x</span>
+            {!isFiniteMode && <><span className="hidden sm:inline">Math</span><span className="text-[9px] font-mono opacity-50">M</span></>}
+          </button>
+
           {/* Sticky Note */}
           <button
             onClick={() => { onModeChange("note"); setShapesOpen(false); }}

@@ -15,6 +15,10 @@ import {
   Minimize,
   Maximize2,
   Layers,
+  Video,
+  Save,
+  FolderOpen,
+  CheckCheck,
 } from "lucide-react";
 import type { GridStyle } from "../types/whiteboard";
 
@@ -36,6 +40,11 @@ interface HeaderBarProps {
   onOpenShortcuts: () => void;
   isPenActive: boolean;
   currentPressure: number;
+  onExportTapboard?: () => void;
+  onImportTapboard?: (file: File) => void;
+  onStartRecording?: () => void;
+  isRecording?: boolean;
+  isAutoSaved?: boolean;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -56,6 +65,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenShortcuts,
   isPenActive,
   currentPressure,
+  onExportTapboard,
+  onImportTapboard,
+  onStartRecording,
+  isRecording = false,
+  isAutoSaved = true,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
@@ -193,32 +207,106 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
       </div>
 
-      {/* ── Center: Tablet Hardware Sensor Pill ── */}
-      <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/5 text-[11px] font-mono">
-        {isPenActive || currentPressure > 0 ? (
-          <>
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <PenTool className="w-3 h-3 text-emerald-400" />
-            <span className="text-emerald-300 font-medium">Stylus Active</span>
-            <span className="text-zinc-500">•</span>
-            <span className="text-zinc-400">
-              {Math.round(currentPressure * 8192)} / 8192 levels
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/60" />
-            <MousePointer2 className="w-3 h-3 text-zinc-400" />
-            <span className="text-zinc-400">Huion / Wacom Ready</span>
-          </>
-        )}
+      {/* ── Center: Tablet Hardware & Auto-Save Sync ── */}
+      <div className="hidden md:flex items-center gap-2">
+        <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/5 text-[11px] font-mono">
+          {isPenActive || currentPressure > 0 ? (
+            <>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <PenTool className="w-3 h-3 text-emerald-400" />
+              <span className="text-emerald-300 font-medium">Stylus Active</span>
+              <span className="text-zinc-500">•</span>
+              <span className="text-zinc-400">
+                {Math.round(currentPressure * 8192)} / 8192 levels
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/60" />
+              <MousePointer2 className="w-3 h-3 text-zinc-400" />
+              <span className="text-zinc-400">Tablet Ready</span>
+            </>
+          )}
+        </div>
+
+        {/* Local IndexedDB Auto-Save Status */}
+        <div
+          title="Auto-saved to local offline storage (never lose work on refresh)"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-300"
+        >
+          <CheckCheck className="w-3 h-3 text-emerald-400" />
+          <span>{isAutoSaved ? "Auto-saved" : "Saving..."}</span>
+        </div>
       </div>
 
       {/* ── Right: Canvas Controls & Actions ── */}
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* Record Lecture Video & Mic */}
+        {onStartRecording && (
+          <button
+            onClick={onStartRecording}
+            disabled={isRecording}
+            title="Record Video Lecture with Educator Mic Audio"
+            className={`
+              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+              transition-all duration-150 active:scale-95
+              ${
+                isRecording
+                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse"
+                  : "bg-rose-500/12 hover:bg-rose-500/22 text-rose-300 border border-rose-500/25 shadow-sm"
+              }
+            `}
+          >
+            <Video className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden lg:inline">{isRecording ? "Recording..." : "Record"}</span>
+          </button>
+        )}
+
+        {/* Save .tapboard Project */}
+        {onExportTapboard && (
+          <button
+            onClick={onExportTapboard}
+            title="Save Lecture Project File (.tapboard)"
+            className="
+              flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+              text-zinc-300 bg-white/[0.04] hover:bg-white/[0.1] border border-white/5
+              transition-all duration-150 active:scale-95
+            "
+          >
+            <Save className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="hidden xl:inline">Save</span>
+          </button>
+        )}
+
+        {/* Open .tapboard Project */}
+        {onImportTapboard && (
+          <label
+            title="Open Lecture Project File (.tapboard)"
+            className="
+              flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+              text-zinc-300 bg-white/[0.04] hover:bg-white/[0.1] border border-white/5
+              cursor-pointer transition-all duration-150 active:scale-95
+            "
+          >
+            <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="hidden xl:inline">Open</span>
+            <input
+              type="file"
+              accept=".tapboard,application/json"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  onImportTapboard(e.target.files[0]);
+                  e.target.value = "";
+                }
+              }}
+            />
+          </label>
+        )}
+
         {/* Background Grid Selector */}
         <button
           onClick={cycleGrid}
