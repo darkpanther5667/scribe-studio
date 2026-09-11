@@ -54,6 +54,16 @@ import { drawMathItem } from "../utils/mathRenderer";
 import { MathFormulaModal } from "./MathFormulaModal";
 import { lectureRecorder, type RecorderState } from "../utils/lectureRecorder";
 import { LectureRecorderWidget } from "./LectureRecorderWidget";
+import { AuthModal } from "./AuthModal";
+import { CloudLibraryModal } from "./CloudLibraryModal";
+import {
+  getCurrentUser,
+  signOutUser,
+  saveDrawingToCloud,
+  getSupabaseClient,
+  type CloudDrawingRecord,
+} from "../lib/supabase";
+import type { User } from "@supabase/supabase-js";
 import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon } from "lucide-react";
 
 // ─── Pen style → perfect-freehand options ────────────────────────────────────
@@ -290,6 +300,13 @@ export const Whiteboard: React.FC = () => {
     isPaused: false,
     seconds: 0,
   });
+
+  // ── Supabase Cloud Sync & Auth State ─────────────────────────────────────────
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isCloudLibraryOpen, setIsCloudLibraryOpen] = useState(false);
+  const [activeCloudDrawingId, setActiveCloudDrawingId] = useState<string | null>(null);
+  const [isSavingToCloud, setIsSavingToCloud] = useState(false);
 
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const selectedImageIdRef = useRef<string | null>(selectedImageId);
@@ -1431,6 +1448,48 @@ export const Whiteboard: React.FC = () => {
     await lectureRecorder.startRecording(canvas, lectureTitle);
   }, [lectureTitle]);
 
+  // ── Supabase Cloud Save & Load Operations ────────────────────────────────────
+  const handleSaveCurrentToCloud = useCallback(async () => {
+    setIsSavingToCloud(true);
+    try {
+      const currentDeck = syncCurrentSlideToDeck();
+      const savedRow = await saveDrawingToCloud({
+        id: activeCloudDrawingId || undefined,
+        title: lectureTitle,
+        slides: currentDeck,
+        gridStyle,
+        isFiniteMode,
+      });
+      setActiveCloudDrawingId(savedRow.id);
+      alert(`Lecture "${savedRow.title}" successfully saved to Supabase Cloud!`);
+    } catch (err: any) {
+      alert("Failed to save to cloud: " + (err?.message || "Please check credentials"));
+    } finally {
+      setIsSavingToCloud(false);
+    }
+  }, [activeCloudDrawingId, lectureTitle, gridStyle, isFiniteMode, syncCurrentSlideToDeck]);
+
+  const handleLoadCloudDrawing = useCallback(
+    (record: CloudDrawingRecord) => {
+      setActiveCloudDrawingId(record.id);
+      setLectureTitle(record.title);
+      setSlides(record.slides);
+      slidesRef.current = record.slides;
+      setGridStyle(record.grid_style);
+      setIsFiniteMode(record.is_finite_mode);
+      isFiniteModeRef.current = record.is_finite_mode;
+
+      const targetIdx = 0;
+      setCurrentSlideIndex(targetIdx);
+      currentSlideIndexRef.current = targetIdx;
+      if (record.slides[0]) {
+        loadSlide(record.slides[0]);
+      }
+      setTimeout(() => handleFitToScreen(), 50);
+    },
+    [loadSlide, handleFitToScreen]
+  );
+
   // ── IndexedDB Auto-Save & Project Restore Lifecycle ─────────────────────────
   const isLoadedFromStorageRef = useRef(false);
 
@@ -1461,6 +1520,16 @@ export const Whiteboard: React.FC = () => {
 
     // 2. Subscribe to recorder service
     lectureRecorder.subscribe((s) => setRecorderState(s));
+
+    // 3. Listen to Supabase Auth state
+    getCurrentUser().then((u) => setCurrentUser(u));
+    const sbClient = getSupabaseClient();
+    if (sbClient) {
+      const { data: authSub } = sbClient.auth.onAuthStateChange((_event, session) => {
+        setCurrentUser(session?.user || null);
+      });
+      return () => authSub.subscription.unsubscribe();
+    }
   }, [loadSlide]);
 
   // 3. Debounced Auto-Save to IndexedDB on any change
@@ -3074,6 +3143,14 @@ export const Whiteboard: React.FC = () => {
         onStartRecording={handleStartRecording}
         isRecording={recorderState.isRecording}
         isAutoSaved={true}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenCloudLibrary={() => setIsCloudLibraryOpen(true)}
+        onSignOut={async () => {
+          await signOutUser();
+          setCurrentUser(null);
+          setActiveCloudDrawingId(null);
+        }}
       />
 
       {/* ── Interactive Inline Text / Sticky Note Input Overlay ── */}
@@ -3422,6 +3499,24 @@ export const Whiteboard: React.FC = () => {
           setPendingMathPos(null);
         }}
         onInsert={handleInsertMath}
+      />
+
+      {/* ── Supabase Authentication Modal ── */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={() => {
+          getCurrentUser().then((u) => setCurrentUser(u));
+        }}
+      />
+
+      {/* ── Supabase Cloud Lecture Library Drawer Modal ── */}
+      <CloudLibraryModal
+        isOpen={isCloudLibraryOpen}
+        onClose={() => setIsCloudLibraryOpen(false)}
+        onLoadDrawing={handleLoadCloudDrawing}
+        onSaveCurrentToCloud={handleSaveCurrentToCloud}
+        isSavingCurrent={isSavingToCloud}
       />
     </div>
   );

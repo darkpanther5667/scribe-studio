@@ -19,6 +19,9 @@ import {
   Save,
   FolderOpen,
   CheckCheck,
+  Cloud,
+  User,
+  LogOut,
 } from "lucide-react";
 import type { GridStyle } from "../types/whiteboard";
 
@@ -45,6 +48,10 @@ interface HeaderBarProps {
   onStartRecording?: () => void;
   isRecording?: boolean;
   isAutoSaved?: boolean;
+  currentUser?: { email?: string } | null;
+  onOpenAuth?: () => void;
+  onOpenCloudLibrary?: () => void;
+  onSignOut?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -70,6 +77,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onStartRecording,
   isRecording = false,
   isAutoSaved = true,
+  currentUser = null,
+  onOpenAuth,
+  onOpenCloudLibrary,
+  onSignOut,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
@@ -244,6 +255,50 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
       {/* ── Right: Canvas Controls & Actions ── */}
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* Supabase Cloud Sync / Auth */}
+        {currentUser ? (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onOpenCloudLibrary}
+              title={`Logged in as ${currentUser.email} • Click to open Cloud Lectures`}
+              className="
+                flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+                text-sky-300 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30
+                transition-all duration-150 active:scale-95 shadow-sm
+              "
+            >
+              <Cloud className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden sm:inline max-w-[110px] truncate">
+                {currentUser.email?.split("@")[0] || "Lectures"}
+              </span>
+            </button>
+            {onSignOut && (
+              <button
+                onClick={onSignOut}
+                title="Sign Out of Supabase"
+                className="p-1.5 rounded-xl text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        ) : (
+          onOpenAuth && (
+            <button
+              onClick={onOpenAuth}
+              title="Sign in with Supabase to save drawings to the cloud"
+              className="
+                flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+                text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30
+                transition-all duration-150 active:scale-95
+              "
+            >
+              <User className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Sign In</span>
+            </button>
+          )
+        )}
+
         {/* Record Lecture Video & Mic */}
         {onStartRecording && (
           <button
