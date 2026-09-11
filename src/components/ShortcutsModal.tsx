@@ -55,6 +55,15 @@ const SHORTCUT_GROUPS: { group: string; items: ShortcutItem[] }[] = [
       { keys: ["Esc"], label: "Deselect", desc: "Clear active selection or cancel modal" },
     ],
   },
+  {
+    group: "Notebooks & Slides",
+    items: [
+      { keys: ["Ctrl", "N"], label: "New Notebook", desc: "Start a fresh blank lecture deck" },
+      { keys: ["Ctrl", "Enter"], label: "Add Slide", desc: "Insert a blank slide after current slide" },
+      { keys: ["PageUp"], label: "Prev Slide", desc: "Navigate to previous slide" },
+      { keys: ["PageDown"], label: "Next Slide", desc: "Navigate to next slide" },
+    ],
+  },
 ];
 
 export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose }) => {

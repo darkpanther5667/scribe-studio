@@ -196,6 +196,8 @@ const EMPTY_SELECTION: SelectionState = {
   imageIds: new Set(),
 };
 
+const DEFAULT_CAMERA: Camera = { x: 0, y: 0, zoom: 1 };
+
 function hasSelectedElements(sel: SelectionState): boolean {
   return (
     sel.strokeIds.size > 0 ||
@@ -1514,6 +1516,51 @@ export const Whiteboard: React.FC = () => {
     [loadSlide, handleFitToScreen]
   );
 
+  const handleNewNotebook = useCallback(() => {
+    setActiveCloudDrawingId(null);
+    const newSlide: Slide = {
+      id: `slide-${Date.now()}`,
+      title: "Slide 1",
+      strokes: [],
+      shapes: [],
+      texts: [],
+      notes: [],
+      images: [],
+      maths: [],
+    };
+    setSlides([newSlide]);
+    slidesRef.current = [newSlide];
+    setCurrentSlideIndex(0);
+    currentSlideIndexRef.current = 0;
+
+    strokesRef.current = [];
+    shapesRef.current = [];
+    textsRef.current = [];
+    notesRef.current = [];
+    imagesRef.current = [];
+    mathsRef.current = [];
+    setStrokes([]);
+    setShapes([]);
+    setTexts([]);
+    setNotes([]);
+    setImages([]);
+    setMaths([]);
+    setSelectedImageId(null);
+    selectedIdsRef.current = EMPTY_SELECTION;
+    setSelectedIds(EMPTY_SELECTION);
+    activeStrokeRef.current = null;
+    activeShapeRef.current = null;
+    laserTrailRef.current = [];
+    setUndoStack([]);
+    setRedoStack([]);
+
+    const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    setLectureTitle(`Lecture (${today}) - Untitled`);
+    setCamera(DEFAULT_CAMERA);
+    scheduleRedraw();
+    setIsCloudLibraryOpen(false);
+  }, [scheduleRedraw]);
+
   // ── IndexedDB Auto-Save & Project Restore Lifecycle ─────────────────────────
   const isLoadedFromStorageRef = useRef(false);
 
@@ -1568,6 +1615,17 @@ export const Whiteboard: React.FC = () => {
         gridStyle,
         isFiniteMode: isFiniteModeRef.current,
       });
+
+      // Background auto-save to Supabase Cloud if user is authenticated and this is an active cloud notebook
+      if (currentUser && activeCloudDrawingId) {
+        saveDrawingToCloud({
+          id: activeCloudDrawingId,
+          title: lectureTitle,
+          slides: currentDeck,
+          gridStyle,
+          isFiniteMode: isFiniteModeRef.current,
+        }).catch((e) => console.warn("[Tapboard] Cloud auto-save error:", e));
+      }
     }, 800);
     return () => clearTimeout(timer);
   }, [
@@ -1582,6 +1640,8 @@ export const Whiteboard: React.FC = () => {
     currentSlideIndex,
     gridStyle,
     isFiniteMode,
+    currentUser,
+    activeCloudDrawingId,
     syncCurrentSlideToDeck,
   ]);
 
@@ -1990,6 +2050,16 @@ export const Whiteboard: React.FC = () => {
         }
       }
 
+      // New Notebook (Ctrl + N or Alt + N)
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") ||
+        (e.altKey && e.key.toLowerCase() === "n")
+      ) {
+        e.preventDefault();
+        handleNewNotebook();
+        return;
+      }
+
       // Add Blank Presentation Slide (Ctrl + Enter) - Unacademy signature
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
@@ -2111,7 +2181,7 @@ export const Whiteboard: React.FC = () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [handleUndo, handleRedo, handleAddBlankSlide, handleSelectSlide, handleFitToScreen, toggleFullscreen, scheduleRedraw]);
+  }, [handleUndo, handleRedo, handleNewNotebook, handleAddBlankSlide, handleSelectSlide, handleFitToScreen, toggleFullscreen, scheduleRedraw]);
 
   // ── Hit-testing images and resize handles ────────────────────────────────────
   const hitTestImageHandle = (
@@ -3025,9 +3095,8 @@ export const Whiteboard: React.FC = () => {
   }, [scheduleRedraw]);
 
   const handleResetCamera = useCallback(() => {
-    const defaultCamera: Camera = { x: 0, y: 0, zoom: 1 };
-    cameraRef.current = defaultCamera;
-    setCamera(defaultCamera);
+    cameraRef.current = DEFAULT_CAMERA;
+    setCamera(DEFAULT_CAMERA);
     scheduleRedraw();
   }, [scheduleRedraw]);
 
@@ -3139,6 +3208,7 @@ export const Whiteboard: React.FC = () => {
 
       {/* ── Tapboard Top Brand Header & Telemetry ── */}
       <HeaderBar
+        onNewNotebook={handleNewNotebook}
         title={lectureTitle}
         onTitleChange={handleTitleChange}
         gridStyle={gridStyle}
@@ -3540,7 +3610,9 @@ export const Whiteboard: React.FC = () => {
         onClose={() => setIsCloudLibraryOpen(false)}
         onLoadDrawing={handleLoadCloudDrawing}
         onSaveCurrentToCloud={handleSaveCurrentToCloud}
+        onNewNotebook={handleNewNotebook}
         isSavingCurrent={isSavingToCloud}
+        activeDrawingId={activeCloudDrawingId}
       />
     </div>
   );

@@ -22,10 +22,12 @@ import {
   LogOut,
   ChevronDown,
   Layers,
+  Plus,
 } from "lucide-react";
 import type { GridStyle } from "../types/whiteboard";
 
 interface HeaderBarProps {
+  onNewNotebook?: () => void;
   title: string;
   onTitleChange: (newTitle: string) => void;
   gridStyle: GridStyle;
@@ -57,6 +59,7 @@ interface HeaderBarProps {
 type DropdownMenu = "file" | "export" | "profile" | null;
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
+  onNewNotebook,
   title,
   onTitleChange,
   gridStyle,
@@ -299,7 +302,24 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 animate-in fade-in zoom-in-95 duration-100
               "
             >
-              {/* Cloud Library */}
+              {/* New Blank Notebook */}
+              {onNewNotebook && (
+                <button
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onNewNotebook();
+                  }}
+                  className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-emerald-300 hover:text-white hover:bg-emerald-500/15 transition-colors font-medium"
+                >
+                  <div className="flex items-center gap-2">
+                    <Plus className="w-4 h-4 text-emerald-400" />
+                    <span>New Notebook</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-400 bg-white/5 px-1.5 py-0.5 rounded">Ctrl+N</span>
+                </button>
+              )}
+
+              {/* Cloud Notebooks Library */}
               {onOpenCloudLibrary && currentUser && (
                 <button
                   onClick={() => {
@@ -309,12 +329,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-200 hover:text-white hover:bg-white/[0.08] transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Cloud className="w-4 h-4 text-sky-400" />
-                    <span className="font-medium">Cloud Library</span>
+                    <BookOpen className="w-4 h-4 text-sky-400" />
+                    <span className="font-medium">My Notebooks</span>
                   </div>
-                  <span className="text-[10px] text-zinc-500">Supabase</span>
+                  <span className="text-[10px] text-sky-400/80 font-mono">Cloud</span>
                 </button>
               )}
+
+              <div className="my-1 border-t border-white/5" />
 
               {/* Import PDF */}
               <button
@@ -397,6 +419,22 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </div>
           )}
         </div>
+
+        {/* 1.5. NOTEBOOKS DASHBOARD QUICK ACCESS */}
+        {currentUser && onOpenCloudLibrary && (
+          <button
+            onClick={onOpenCloudLibrary}
+            title="Open Educator Notebooks Dashboard"
+            className="
+              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+              text-sky-300 hover:text-white bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20
+              transition-all duration-150 active:scale-95
+            "
+          >
+            <BookOpen className="w-3.5 h-3.5 text-sky-400" />
+            <span className="hidden sm:inline">Notebooks</span>
+          </button>
+        )}
 
         {/* 2. EXPORT MENU */}
         <div className="relative">
@@ -625,8 +663,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     }}
                     className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl text-zinc-200 hover:text-white hover:bg-white/[0.08] transition-colors"
                   >
-                    <Cloud className="w-4 h-4 text-sky-400" />
-                    <span>Cloud Lectures</span>
+                    <BookOpen className="w-4 h-4 text-sky-400" />
+                    <span>My Notebooks</span>
                   </button>
                 )}
 

@@ -212,3 +212,48 @@ export async function deleteUserDrawing(id: string): Promise<void> {
   const { error } = await client.from("drawings").delete().eq("id", id);
   if (error) throw error;
 }
+
+export async function renameUserDrawing(id: string, newTitle: string): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) throw new Error("Supabase is not configured.");
+
+  const { error } = await client
+    .from("drawings")
+    .update({ title: newTitle.trim() || "Untitled Lecture" })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function duplicateUserDrawing(id: string): Promise<CloudDrawingRecord> {
+  const client = getSupabaseClient();
+  if (!client) throw new Error("Supabase is not configured.");
+
+  const user = await getCurrentUser();
+  if (!user) throw new Error("You must be logged in to duplicate a notebook.");
+
+  const { data: source, error: fetchErr } = await client
+    .from("drawings")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (fetchErr) throw fetchErr;
+
+  const rowData = {
+    user_id: user.id,
+    title: `${source.title || "Untitled Lecture"} (Copy)`,
+    slides: source.slides,
+    grid_style: source.grid_style,
+    is_finite_mode: source.is_finite_mode,
+    thumbnail: source.thumbnail || null,
+  };
+
+  const { data, error: insertErr } = await client
+    .from("drawings")
+    .insert([rowData])
+    .select()
+    .single();
+
+  if (insertErr) throw insertErr;
+  return data;
+}
+
