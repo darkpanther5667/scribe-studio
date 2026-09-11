@@ -42,52 +42,55 @@ export const SlideTray: React.FC<SlideTrayProps> = ({
       {drawerOpen && (
         <div
           className="
-            fixed bottom-20 right-6 z-50
+            fixed bottom-20 right-5 z-50
             flex flex-col gap-2 p-3
-            rounded-3xl bg-zinc-950/95 backdrop-blur-2xl
-            border border-white/15 shadow-[0_25px_60px_rgba(0,0,0,0.95)]
-            max-w-md w-80 max-h-96
-            animate-in fade-in slide-in-from-bottom-2 duration-150 select-none
+            rounded-2xl bg-zinc-950/97 backdrop-blur-2xl
+            border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.95)]
+            w-72 max-h-[420px]
+            animate-in fade-in slide-in-from-bottom-3 duration-200 select-none
           "
           onPointerDown={(e) => e.stopPropagation()}
         >
           {/* Drawer Header */}
-          <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs">
+          <div className="flex items-center justify-between pb-2 border-b border-white/[0.07] text-xs">
             <div className="flex items-center gap-2">
-              <Layers className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="font-semibold text-white">Lecture Slides ({totalSlides})</span>
+              <Layers className="w-3.5 h-3.5 text-sky-400" />
+              <span className="font-semibold text-white tracking-tight">
+                Slides
+                <span className="ml-1.5 text-zinc-500 font-normal">({totalSlides})</span>
+              </span>
             </div>
-
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <button
                 onClick={onDuplicateSlide}
                 title="Duplicate Current Slide"
-                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <Copy className="w-3.5 h-3.5" />
               </button>
-
               {totalSlides > 1 && (
                 <button
                   onClick={onDeleteSlide}
                   title="Delete Current Slide"
-                  className="p-1 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                  className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
-
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
-          {/* Slides Grid / List */}
-          <div className="grid grid-cols-2 gap-2 overflow-y-auto p-1 max-h-72">
+          {/* Slides List */}
+          <div className="flex flex-col gap-1.5 overflow-y-auto pr-0.5 max-h-[310px]
+            [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full
+            [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent"
+          >
             {slides.map((slide, idx) => {
               const isActive = idx === currentSlideIndex;
               const hasPdf = slide.images.some((i) => i.isPdfPage);
@@ -96,58 +99,76 @@ export const SlideTray: React.FC<SlideTrayProps> = ({
                 slide.shapes.length +
                 slide.texts.length +
                 slide.notes.length;
+              const bgColor = slide.backgroundColor ?? (hasPdf ? "#ffffff" : "#0a0a0a");
+              const isLight = bgColor === "#ffffff" || bgColor === "#e8e8e8" || bgColor === "#f5f5f5";
 
               return (
                 <button
                   key={slide.id}
-                  onClick={() => {
-                    onSelectSlide(idx);
-                    setDrawerOpen(false);
-                  }}
+                  onClick={() => { onSelectSlide(idx); setDrawerOpen(false); }}
                   className={`
-                    relative flex flex-col items-start p-2.5 rounded-2xl border text-left transition-all duration-150
-                    ${
-                      isActive
-                        ? "bg-cyan-500/20 border-cyan-400/80 shadow-md shadow-cyan-500/20 ring-1 ring-cyan-400/40"
-                        : "bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.06]"
+                    relative flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left
+                    transition-all duration-150 group
+                    ${isActive
+                      ? "bg-sky-500/12 border-sky-400/50 shadow-sm"
+                      : "bg-white/[0.02] border-white/[0.06] hover:border-white/15 hover:bg-white/[0.05]"
                     }
                   `}
                 >
-                  <div className="flex items-center justify-between w-full mb-1.5">
-                    <span className="text-[11px] font-mono font-bold text-white">
-                      Slide {idx + 1}
-                    </span>
-                    {hasPdf && (
-                      <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-cyan-400/20 text-cyan-300">
-                        DOC
+                  {/* Active indicator bar */}
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 rounded-r-full bg-sky-400" />
+                  )}
+
+                  {/* Mini slide preview */}
+                  <div
+                    className="w-16 h-9 rounded-lg border shrink-0 flex items-center justify-center overflow-hidden relative"
+                    style={{
+                      backgroundColor: bgColor,
+                      borderColor: isActive ? "rgba(56,189,248,0.4)" : "rgba(255,255,255,0.08)"
+                    }}
+                  >
+                    {hasPdf ? (
+                      <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">PDF</span>
+                    ) : (
+                      <span className={`text-[8px] font-mono ${isLight ? "text-zinc-400" : "text-zinc-600"}`}>
+                        {itemCount > 0 ? `${itemCount}` : "·"}
                       </span>
                     )}
                   </div>
 
-                  {/* Mock Mini Canvas Preview */}
-                  <div className="w-full h-14 rounded-lg bg-black border border-white/10 flex items-center justify-center relative overflow-hidden">
-                    <span className="text-[10px] font-mono text-zinc-500">
-                      {itemCount > 0 ? `${itemCount} elements` : "Blank Slate"}
+                  {/* Slide info */}
+                  <div className="flex flex-col min-w-0">
+                    <span className={`text-[12px] font-semibold leading-tight truncate ${isActive ? "text-sky-200" : "text-zinc-200"}`}>
+                      {slide.title ?? `Slide ${idx + 1}`}
+                    </span>
+                    <span className="text-[10px] text-zinc-600 mt-0.5">
+                      {hasPdf ? "PDF Page" : itemCount > 0 ? `${itemCount} element${itemCount !== 1 ? "s" : ""}` : "Blank"}
                     </span>
                   </div>
+
+                  {/* Slide number badge */}
+                  <span className={`ml-auto text-[10px] font-mono shrink-0 tabular-nums ${isActive ? "text-sky-400" : "text-zinc-600"}`}>
+                    {idx + 1}
+                  </span>
                 </button>
               );
             })}
 
-            {/* Add Slide Tile */}
+            {/* Add Slide button */}
             <button
-              onClick={() => {
-                onAddBlankSlide();
-              }}
+              onClick={() => { onAddBlankSlide(); }}
               className="
-                flex flex-col items-center justify-center p-3 rounded-2xl
-                border border-dashed border-white/20 hover:border-cyan-400/60
-                bg-white/[0.02] hover:bg-cyan-500/10 text-zinc-400 hover:text-cyan-300
-                transition-all duration-150 h-24
+                flex items-center gap-2.5 px-3 py-2.5 rounded-xl mt-0.5
+                border border-dashed border-white/10 hover:border-sky-400/40
+                bg-white/[0.01] hover:bg-sky-500/8
+                text-zinc-500 hover:text-sky-300
+                transition-all duration-150
               "
             >
-              <Plus className="w-5 h-5 mb-1" />
-              <span className="text-xs font-semibold">+ Blank Slide</span>
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="text-xs font-medium">Add blank slide</span>
+              <span className="ml-auto text-[10px] font-mono text-zinc-700">⌃↵</span>
             </button>
           </div>
         </div>
@@ -157,9 +178,9 @@ export const SlideTray: React.FC<SlideTrayProps> = ({
       <div
         className="
           fixed bottom-5 right-5 z-40
-          flex items-center gap-1.5 px-2.5 py-1.5
-          rounded-2xl bg-zinc-950/85 backdrop-blur-2xl
-          border border-white/10 shadow-[0_16px_36px_rgba(0,0,0,0.8)]
+          flex items-center gap-1 px-2 py-1.5
+          rounded-2xl bg-zinc-950/90 backdrop-blur-2xl
+          border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.8)]
           select-none transition-all duration-200
         "
         onPointerDown={(e) => e.stopPropagation()}
@@ -168,46 +189,46 @@ export const SlideTray: React.FC<SlideTrayProps> = ({
         <button
           onClick={() => onSelectSlide(currentSlideIndex - 1)}
           disabled={!canGoPrev}
-          title="Previous Slide (PageUp / Left Arrow)"
+          title="Previous Slide (← / PageUp)"
           className={`
             p-1.5 rounded-xl transition-all duration-150 active:scale-90
-            ${
-              canGoPrev
-                ? "text-zinc-300 hover:text-white hover:bg-white/10"
-                : "text-zinc-600 cursor-not-allowed"
+            ${canGoPrev
+              ? "text-zinc-300 hover:text-white hover:bg-white/10"
+              : "text-zinc-700 cursor-not-allowed"
             }
           `}
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
 
-        {/* Slide Counter Button (Opens Drawer) */}
+        {/* Slide Counter (Opens Drawer) */}
         <button
           onClick={() => setDrawerOpen((prev) => !prev)}
-          title="View All Slides / Jump to Slide"
-          className="
-            flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-semibold
-            bg-white/[0.04] hover:bg-white/[0.1] text-zinc-200 hover:text-white
-            border border-white/5 transition-all active:scale-95
-          "
+          title="All Slides (click to open)"
+          className={`
+            flex items-center gap-1.5 px-2.5 py-1 rounded-xl
+            text-xs font-semibold tabular-nums
+            transition-all active:scale-95
+            ${drawerOpen
+              ? "bg-sky-500/15 text-sky-200 border border-sky-400/30"
+              : "bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 hover:text-white border border-white/[0.06]"
+            }
+          `}
         >
-          <Layers className="w-3.5 h-3.5 text-cyan-400" />
-          <span>
-            {currentSlideIndex + 1} / {totalSlides}
-          </span>
+          <Layers className="w-3.5 h-3.5 text-sky-400" />
+          <span>{currentSlideIndex + 1} / {totalSlides}</span>
         </button>
 
         {/* Next Slide */}
         <button
           onClick={() => onSelectSlide(currentSlideIndex + 1)}
           disabled={!canGoNext}
-          title="Next Slide (PageDown / Right Arrow)"
+          title="Next Slide (→ / PageDown)"
           className={`
             p-1.5 rounded-xl transition-all duration-150 active:scale-90
-            ${
-              canGoNext
-                ? "text-zinc-300 hover:text-white hover:bg-white/10"
-                : "text-zinc-600 cursor-not-allowed"
+            ${canGoNext
+              ? "text-zinc-300 hover:text-white hover:bg-white/10"
+              : "text-zinc-700 cursor-not-allowed"
             }
           `}
         >
@@ -215,24 +236,27 @@ export const SlideTray: React.FC<SlideTrayProps> = ({
         </button>
 
         {onFitToScreen && (
-          <button
-            onClick={onFitToScreen}
-            title="Fit Slide to Full Screen (0 / Ctrl+0)"
-            className="p-1.5 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 transition-all duration-150 active:scale-90"
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-          </button>
+          <>
+            <div className="w-px h-4 bg-white/[0.08] mx-0.5" />
+            <button
+              onClick={onFitToScreen}
+              title="Fit to Screen (0)"
+              className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all duration-150 active:scale-90"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+          </>
         )}
 
-        <div className="w-px h-4 bg-white/10 shrink-0 mx-0.5" />
+        <div className="w-px h-4 bg-white/[0.08] mx-0.5" />
 
-        {/* Add Blank Slide (Insert right after current slide) */}
+        {/* Add Slide */}
         <button
           onClick={onAddBlankSlide}
-          title="Insert Blank Slide after current (Ctrl + Enter)"
+          title="Add Blank Slide (Ctrl+Enter)"
           className="
             flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold
-            text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30
+            text-sky-300 bg-sky-500/12 hover:bg-sky-500/22 border border-sky-500/25
             transition-all duration-150 active:scale-95
           "
         >

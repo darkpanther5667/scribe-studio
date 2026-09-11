@@ -68,6 +68,8 @@ export interface TextItem {
   y: number;
   color: string;
   fontSize: number;
+  /** "normal" = Inter/system UI, "handwriting" = Caveat handwriting font */
+  fontStyle?: "normal" | "handwriting";
 }
 
 /** Educator Sticky Note / Callout Card */

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  Sparkles,
   Edit3,
   Check,
   HelpCircle,
@@ -114,32 +113,34 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         flex items-center justify-between
         px-3.5 py-2
         rounded-2xl
-        bg-zinc-950/85 backdrop-blur-2xl
-        border border-white/10
-        shadow-[0_16px_40px_rgba(0,0,0,0.85)]
+        bg-zinc-950/90 backdrop-blur-2xl
+        border border-white/[0.08]
+        shadow-[0_8px_32px_rgba(0,0,0,0.7)]
         select-none
         transition-all duration-200
       "
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {/* ── Left: Brand Mark & Editable Title ── */}
+      {/* ── Left: Tapboard Brand & Editable Title ── */}
       <div className="flex items-center gap-3 min-w-0">
-        {/* Brand Monogram */}
-        <div className="flex items-center gap-2 pr-3 border-r border-white/10 shrink-0">
-          <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 via-sky-500 to-indigo-500 shadow-md shadow-cyan-500/25 ring-1 ring-white/20">
-            <Sparkles className="w-4 h-4 text-white animate-pulse" />
+        {/* Tapboard Logo — tap ripple + pen mark */}
+        <div className="flex items-center gap-2.5 pr-3.5 border-r border-white/[0.08] shrink-0">
+          <div className="relative w-8 h-8 shrink-0">
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 shadow-lg shadow-cyan-500/30" />
+            <svg viewBox="0 0 32 32" className="absolute inset-0 w-full h-full p-1.5" fill="none">
+              <circle cx="13" cy="16" r="8" stroke="white" strokeWidth="1.5" opacity="0.25"/>
+              <circle cx="13" cy="16" r="4.5" stroke="white" strokeWidth="1.5" opacity="0.5"/>
+              <circle cx="13" cy="16" r="1.8" fill="white"/>
+              <path d="M20 8 L23 11 L16 18 L13.5 18 L13.5 15.5 Z" fill="white" opacity="0.9"/>
+              <path d="M23 8 L24.5 9.5 L22 11 L20 8 Z" fill="white" opacity="0.55"/>
+            </svg>
           </div>
           <div className="flex flex-col leading-none">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold tracking-tight text-white font-sans">
-                Scribe
-              </span>
-              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                STUDIO
-              </span>
-            </div>
-            <span className="text-[10px] text-zinc-400 font-medium tracking-wide">
-              Digital Slate
+            <span className="text-[15px] font-bold tracking-[-0.03em] text-white" style={{fontFamily:"'Inter', sans-serif"}}>
+              Tapboard
+            </span>
+            <span className="text-[10px] text-zinc-500 font-medium tracking-wide mt-px">
+              Teaching Whiteboard
             </span>
           </div>
         </div>

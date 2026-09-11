@@ -43,7 +43,7 @@ import { HeaderBar } from "./HeaderBar";
 import { ShortcutsModal } from "./ShortcutsModal";
 import { SlideTray } from "./SlideTray";
 import { exportClassNotesPdf } from "../utils/pdfNotesExporter";
-import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon, Type } from "lucide-react";
+import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon } from "lucide-react";
 
 // ─── Pen style → perfect-freehand options ────────────────────────────────────
 
@@ -232,6 +232,10 @@ export const Whiteboard: React.FC = () => {
   const [fillStyle, setFillStyle] = useState<FillStyle>("none");
   const fillStyleRef = useRef<FillStyle>(fillStyle);
   fillStyleRef.current = fillStyle;
+
+  const [fontStyle, setFontStyle] = useState<"normal" | "handwriting">("handwriting");
+  const textFontStyleRef = useRef<"normal" | "handwriting">(fontStyle);
+  textFontStyleRef.current = fontStyle;
 
   const [gridStyle, setGridStyle] = useState<GridStyle>("dots");
 
@@ -482,37 +486,68 @@ export const Whiteboard: React.FC = () => {
 
     ctx.save();
     if (isFiniteModeRef.current && slideBg) {
-      // ── Finite mode: fill sheet with slide background colour ──────────────
-      // Drop shadow around the sheet
-      ctx.shadowColor = "rgba(0,0,0,0.35)";
-      ctx.shadowBlur = 32 / cam.zoom;
-      ctx.shadowOffsetY = 8 / cam.zoom;
+      // ── Finite mode: refined paper sheet with elevation shadow ────────────
+      const sheetRadius = 14 / cam.zoom;
+
+      // Outer soft ambient elevation shadow
+      ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+      ctx.shadowBlur = 40 / cam.zoom;
+      ctx.shadowOffsetY = 12 / cam.zoom;
       ctx.fillStyle = slideBg;
-      ctx.fillRect(slideX, slideY, slideW, slideH);
+
+      if (typeof ctx.roundRect === "function") {
+        ctx.beginPath();
+        ctx.roundRect(slideX, slideY, slideW, slideH, sheetRadius);
+        ctx.fill();
+      } else {
+        ctx.fillRect(slideX, slideY, slideW, slideH);
+      }
+
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
 
-      // Thin sheet border
-      ctx.strokeStyle = "rgba(0,0,0,0.18)";
-      ctx.lineWidth = 1.5 / cam.zoom;
-      ctx.strokeRect(slideX, slideY, slideW, slideH);
+      // Subtle crisp sheet border
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.12)";
+      ctx.lineWidth = 1 / cam.zoom;
+      if (typeof ctx.roundRect === "function") {
+        ctx.beginPath();
+        ctx.roundRect(slideX, slideY, slideW, slideH, sheetRadius);
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(slideX, slideY, slideW, slideH);
+      }
 
-      // ── Grid overlay inside the sheet ─────────────────────────────────────
-      const gridSpacing = 40; // world units
-      ctx.strokeStyle = "rgba(0,0,0,0.07)";
-      ctx.lineWidth = 0.8 / cam.zoom;
-      ctx.beginPath();
-      // vertical lines
-      for (let gx = slideX; gx <= slideX + slideW; gx += gridSpacing) {
-        ctx.moveTo(gx, slideY);
-        ctx.lineTo(gx, slideY + slideH);
+      // ── Grid overlay inside the sheet based on active gridStyle ───────────
+      if (gridStyle !== "none") {
+        const gridSpacing = 40; // world units
+        if (gridStyle === "dots") {
+          ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+          const dotRadius = 1.2 / cam.zoom;
+          for (let gx = slideX + gridSpacing; gx < slideX + slideW; gx += gridSpacing) {
+            for (let gy = slideY + gridSpacing; gy < slideY + slideH; gy += gridSpacing) {
+              ctx.beginPath();
+              ctx.arc(gx, gy, dotRadius, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        } else if (gridStyle === "grid") {
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.07)";
+          ctx.lineWidth = 0.8 / cam.zoom;
+          ctx.beginPath();
+          // vertical lines
+          for (let gx = slideX + gridSpacing; gx < slideX + slideW; gx += gridSpacing) {
+            ctx.moveTo(gx, slideY);
+            ctx.lineTo(gx, slideY + slideH);
+          }
+          // horizontal lines
+          for (let gy = slideY + gridSpacing; gy < slideY + slideH; gy += gridSpacing) {
+            ctx.moveTo(slideX, gy);
+            ctx.lineTo(slideX + slideW, gy);
+          }
+          ctx.stroke();
+        }
       }
-      // horizontal lines
-      for (let gy = slideY; gy <= slideY + slideH; gy += gridSpacing) {
-        ctx.moveTo(slideX, gy);
-        ctx.lineTo(slideX + slideW, gy);
-      }
-      ctx.stroke();
     } else {
       // ── Infinite canvas: subtle ghost outline only ─────────────────────────
       ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
@@ -1915,6 +1950,7 @@ export const Whiteboard: React.FC = () => {
             y: textEditor.worldY,
             color: colorRef.current,
             fontSize,
+            fontStyle: textFontStyleRef.current,
           };
           const next = [...textsRef.current, newText];
           textsRef.current = next;
@@ -2788,6 +2824,21 @@ export const Whiteboard: React.FC = () => {
       )
     : null;
 
+  const currentSlide = slides[currentSlideIndex];
+  const isSlideEmpty =
+    (!currentSlide ||
+      (currentSlide.strokes.length === 0 &&
+        currentSlide.shapes.length === 0 &&
+        currentSlide.texts.length === 0 &&
+        currentSlide.notes.length === 0 &&
+        currentSlide.images.length === 0)) &&
+    strokes.length === 0 &&
+    shapes.length === 0 &&
+    texts.length === 0 &&
+    notes.length === 0 &&
+    images.length === 0 &&
+    !textEditor;
+
   return (
     <div
       ref={containerRef}
@@ -2838,90 +2889,177 @@ export const Whiteboard: React.FC = () => {
 
       {/* ── Interactive Inline Text / Sticky Note Input Overlay ── */}
       {textEditor && (
-        <div
-          className="fixed z-50 p-2.5 rounded-2xl shadow-2xl border flex flex-col gap-2 backdrop-blur-xl animate-in fade-in duration-100"
-          style={{
-            left: textEditor.screenX,
-            top: textEditor.screenY,
-            backgroundColor: textEditor.isNote ? "#fef08a" : "rgba(24, 24, 27, 0.95)",
-            borderColor: textEditor.isNote ? "#eab308" : "#38bdf8",
-            minWidth: textEditor.isNote ? "220px" : "240px",
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between text-[11px] font-mono px-1">
-            <div className="flex items-center gap-1.5 font-bold">
-              {textEditor.isNote ? (
-                <>
-                  <StickyNoteIcon className="w-3.5 h-3.5 text-amber-900" />
-                  <span className="text-amber-900">Sticky Note</span>
-                </>
-              ) : (
-                <>
-                  <Type className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="text-sky-300">Typed Note</span>
-                </>
-              )}
-            </div>
-            <span className={textEditor.isNote ? "text-amber-800/60 text-[10px]" : "text-zinc-400 text-[10px]"}>
-              Enter to save • Esc to cancel
-            </span>
-          </div>
-
-          <textarea
-            ref={textEditorRef}
-            autoFocus
-            value={textEditor.text}
-            onChange={(e) =>
-              setTextEditor((prev) => (prev ? { ...prev, text: e.target.value } : null))
-            }
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                commitTextEditor(textEditor.text);
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setTextEditor(null);
-              }
-            }}
-            placeholder={textEditor.isNote ? "Type note here..." : "Type text..."}
-            rows={textEditor.isNote ? 3 : 2}
-            className="
-              w-full outline-none font-sans rounded-lg p-1.5 resize-none bg-transparent
-            "
+        textEditor.isNote ? (
+          /* Sticky Note modal card */
+          <div
+            className="fixed z-50 p-3 rounded-2xl shadow-2xl border border-amber-400/80 flex flex-col gap-2 backdrop-blur-xl bg-amber-100/95 animate-in fade-in duration-100"
             style={{
-              color: textEditor.isNote ? "#1e293b" : color,
-              fontSize: textEditor.isNote ? "15px" : "20px",
-              fontWeight: 500,
+              left: textEditor.screenX,
+              top: textEditor.screenY,
+              minWidth: "220px",
             }}
-          />
-
-          <div className="flex items-center justify-end gap-2 pt-1 border-t border-black/10">
-            <button
-              onClick={() => setTextEditor(null)}
-              className={`
-                px-2.5 py-1 rounded-lg text-xs font-medium transition-all
-                ${textEditor.isNote ? "text-amber-900 hover:bg-black/10" : "text-zinc-400 hover:text-white"}
-              `}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => commitTextEditor(textEditor.text)}
-              className={`
-                px-3 py-1 rounded-lg text-xs font-bold shadow-md transition-all active:scale-95
-                ${
-                  textEditor.isNote
-                    ? "bg-amber-500 hover:bg-amber-600 text-amber-950"
-                    : "bg-sky-500 hover:bg-sky-400 text-white"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between text-[11px] font-mono px-1">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <StickyNoteIcon className="w-3.5 h-3.5" />
+                <span>Sticky Note</span>
+              </div>
+              <span className="text-amber-800/60 text-[10px]">
+                Enter to save • Esc to cancel
+              </span>
+            </div>
+            <textarea
+              ref={textEditorRef}
+              autoFocus
+              value={textEditor.text}
+              onChange={(e) =>
+                setTextEditor((prev) => (prev ? { ...prev, text: e.target.value } : null))
+              }
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  commitTextEditor(textEditor.text);
                 }
-              `}
-            >
-              Done
-            </button>
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setTextEditor(null);
+                }
+              }}
+              placeholder="Type note here..."
+              rows={3}
+              className="w-full outline-none font-sans rounded-lg p-1.5 resize-none bg-transparent text-amber-950 text-[15px] font-medium"
+            />
+            <div className="flex items-center justify-end gap-2 pt-1 border-t border-amber-300">
+              <button
+                onClick={() => setTextEditor(null)}
+                className="px-2.5 py-1 rounded-lg text-xs font-medium text-amber-900 hover:bg-black/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => commitTextEditor(textEditor.text)}
+                className="px-3 py-1 rounded-lg text-xs font-bold shadow-md bg-amber-500 hover:bg-amber-600 text-amber-950 transition-all active:scale-95"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Seamless Canvas-Direct Inline Text Input (No Box!) */
+          <div
+            className="fixed z-50 animate-in fade-in duration-75 flex flex-col items-start select-text"
+            style={{
+              left: textEditor.screenX,
+              top: textEditor.screenY,
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <textarea
+              ref={textEditorRef}
+              autoFocus
+              value={textEditor.text}
+              onChange={(e) =>
+                setTextEditor((prev) => (prev ? { ...prev, text: e.target.value } : null))
+              }
+              onBlur={() => {
+                commitTextEditor(textEditor.text);
+              }}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  commitTextEditor(textEditor.text);
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setTextEditor(null);
+                }
+              }}
+              placeholder="Type directly on canvas..."
+              rows={Math.max(1, textEditor.text.split("\n").length)}
+              className="
+                outline-none bg-transparent p-0 m-0 resize-none border-b border-dashed border-sky-400/50
+                focus:border-sky-400 transition-colors
+              "
+              style={{
+                color: color,
+                fontFamily:
+                  fontStyle === "handwriting"
+                    ? "'Caveat', cursive"
+                    : "'Inter', system-ui, -apple-system, sans-serif",
+                fontSize: `${(strokeWidthRef.current === "thin" ? 18 : strokeWidthRef.current === "medium" ? 26 : 36) * camera.zoom}px`,
+                lineHeight: fontStyle === "handwriting" ? 1.2 : 1.3,
+                fontWeight: 600,
+                minWidth: "160px",
+                width: `${Math.max(180, (textEditor.text.length + 3) * (strokeWidthRef.current === "thin" ? 12 : strokeWidthRef.current === "medium" ? 16 : 22) * camera.zoom)}px`,
+              }}
+            />
+            {/* Subtle floating helper pill */}
+            <div className="flex items-center gap-2 mt-1.5 px-2.5 py-0.5 rounded-full bg-zinc-950/85 backdrop-blur-md border border-white/10 text-[10px] text-zinc-400 select-none shadow-lg">
+              <span className="text-zinc-300">↵ Save to board</span>
+              <span>•</span>
+              <span>Shift+↵ New line</span>
+              <span>•</span>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setFontStyle((prev) => (prev === "handwriting" ? "normal" : "handwriting"));
+                }}
+                className="text-sky-300 hover:text-sky-200 font-semibold"
+              >
+                {fontStyle === "handwriting" ? "✍️ Handwriting" : "🔤 Print"}
+              </button>
+            </div>
+          </div>
+        )
+      )}
+
+      {/* ── Empty State Watermark & Quick Hotkeys ── */}
+      {isSlideEmpty && (
+        <div className="pointer-events-none fixed inset-0 flex flex-col items-center justify-center select-none z-10 animate-in fade-in duration-500">
+          <div className="flex flex-col items-center gap-3 p-6 rounded-3xl bg-zinc-950/40 backdrop-blur-sm border border-white/[0.04] shadow-2xl">
+            {/* Logo Mark with subtle glow */}
+            <div className="relative w-12 h-12">
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-sky-500/30 to-cyan-400/20 blur-md" />
+              <div className="relative w-full h-full rounded-2xl bg-zinc-900/80 border border-white/10 flex items-center justify-center shadow-lg">
+                <svg viewBox="0 0 32 32" className="w-6 h-6" fill="none">
+                  <circle cx="13" cy="16" r="8" stroke="white" strokeWidth="1.5" opacity="0.3"/>
+                  <circle cx="13" cy="16" r="4.5" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+                  <circle cx="13" cy="16" r="1.8" fill="#38bdf8"/>
+                  <path d="M20 8 L23 11 L16 18 L13.5 18 L13.5 15.5 Z" fill="#38bdf8" opacity="0.9"/>
+                </svg>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center text-center">
+              <span className="text-sm font-bold text-zinc-200 tracking-tight">
+                Tapboard
+              </span>
+              <span className="text-xs text-zinc-400 mt-0.5">
+                Draw with pen, type directly on board, or import a PDF
+              </span>
+            </div>
+
+            {/* Quick shortcuts pills */}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[11px] text-zinc-300 font-mono">
+                <kbd className="px-1 py-0.2 rounded bg-white/10 font-bold text-white">P</kbd> Pen
+              </span>
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[11px] text-zinc-300 font-mono">
+                <kbd className="px-1 py-0.2 rounded bg-white/10 font-bold text-white">T</kbd> Text
+              </span>
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[11px] text-zinc-300 font-mono">
+                <kbd className="px-1 py-0.2 rounded bg-white/10 font-bold text-white">E</kbd> Eraser
+              </span>
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[11px] text-zinc-300 font-mono">
+                <kbd className="px-1 py-0.2 rounded bg-white/10 font-bold text-white">?</kbd> Shortcuts
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -3048,6 +3186,8 @@ export const Whiteboard: React.FC = () => {
         isFiniteMode={isFiniteMode}
         penStyle={penStyle}
         onPenStyleChange={setPenStyle}
+        fontStyle={fontStyle}
+        onFontStyleChange={setFontStyle}
       />
 
       {/* ── Native PDF Document Import Modal ── */}

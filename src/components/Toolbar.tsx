@@ -123,6 +123,8 @@ interface ToolbarProps {
   isFiniteMode?: boolean;
   penStyle?: PenStyle;
   onPenStyleChange?: (s: PenStyle) => void;
+  fontStyle?: "normal" | "handwriting";
+  onFontStyleChange?: (fs: "normal" | "handwriting") => void;
 }
 
 /** Palette swatches for dark (infinite) canvas mode */
@@ -189,6 +191,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   isFiniteMode = false,
   penStyle = "pen",
   onPenStyleChange,
+  fontStyle = "handwriting",
+  onFontStyleChange,
 }) => {
   const [shapesOpen, setShapesOpen] = useState(false);
   const [penStyleOpen, setPenStyleOpen] = useState(false);
@@ -702,6 +706,30 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <span className="hidden sm:inline">Smart Snap</span>
                 <span className={`text-[9px] font-mono px-1 rounded ${smartSnapEnabled ? "bg-amber-400/30 text-amber-200" : "opacity-50"}`}>
                   {smartSnapEnabled ? "ON" : "OFF"}
+                </span>
+              </button>
+            )}
+
+            {/* Font Style Toggle (when in Text Mode) */}
+            {mode === "text" && onFontStyleChange && (
+              <button
+                onClick={() => onFontStyleChange(fontStyle === "handwriting" ? "normal" : "handwriting")}
+                title="Toggle Font: Handwriting (Caveat) vs Sans (Inter)"
+                className={`
+                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs border transition-all duration-150 active:scale-95
+                  ${
+                    fontStyle === "handwriting"
+                      ? isFiniteMode
+                        ? "bg-purple-500/15 text-purple-900 border-purple-400/40 font-bold"
+                        : "bg-purple-500/25 text-purple-200 border-purple-400/40 font-bold"
+                      : isFiniteMode
+                        ? "bg-black/[0.04] text-zinc-700 border-black/10 hover:text-black"
+                        : "bg-white/[0.05] text-zinc-300 border-white/5 hover:text-white"
+                  }
+                `}
+              >
+                <span style={{ fontFamily: fontStyle === "handwriting" ? "'Caveat', cursive" : "'Inter', sans-serif", fontSize: fontStyle === "handwriting" ? "14px" : "11px" }}>
+                  {fontStyle === "handwriting" ? "✍️ Handwriting" : "🔤 Clean Sans"}
                 </span>
               </button>
             )}

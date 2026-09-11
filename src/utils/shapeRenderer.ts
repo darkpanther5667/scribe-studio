@@ -215,14 +215,22 @@ export function drawText(
   textItem: TextItem,
   _zoom = 1
 ): void {
-  const { text, x, y, color, fontSize } = textItem;
+  const { text, x, y, color, fontSize, fontStyle } = textItem;
   ctx.save();
-  ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
+
+  // Font stack: "handwriting" uses Caveat for a natural pen-on-paper feel
+  const fontFamily =
+    fontStyle === "handwriting"
+      ? "'Caveat', 'Comic Sans MS', cursive"
+      : "'Inter', system-ui, -apple-system, sans-serif";
+  const weight = fontStyle === "handwriting" ? "600" : "600";
+  ctx.font = `${weight} ${fontSize}px ${fontFamily}`;
+
   ctx.fillStyle = color;
   ctx.textBaseline = "top";
 
   const lines = text.split("\n");
-  const lineHeight = fontSize * 1.3;
+  const lineHeight = fontStyle === "handwriting" ? fontSize * 1.2 : fontSize * 1.3;
 
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i], x, y + i * lineHeight);
