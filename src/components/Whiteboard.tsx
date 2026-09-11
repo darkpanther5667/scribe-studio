@@ -74,7 +74,7 @@ import {
   type CloudDrawingRecord,
 } from "../lib/supabase";
 import type { User } from "@supabase/supabase-js";
-import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon, Type } from "lucide-react";
+import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon } from "lucide-react";
 import { ClassroomTimer } from "./ClassroomTimer";
 import { PresentationCurtain } from "./PresentationCurtain";
 import { VirtualRuler, type RulerState } from "./VirtualRuler";
@@ -2664,12 +2664,9 @@ export const Whiteboard: React.FC = () => {
       const screenY = e.clientY - rect.top;
       const worldPoint = screenToWorld(screenX, screenY);
 
-      // If text editor is already open, commit it when clicking elsewhere
+      // If text editor is already open, commit it seamlessly to canvas
       if (textEditor) {
         commitTextEditor();
-        if (modeRef.current !== "text" && modeRef.current !== "note") {
-          return;
-        }
       }
 
       // Handle Text / Note placement WITHOUT capturing pointer!
@@ -3977,42 +3974,16 @@ export const Whiteboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Clean, High-Contrast Floating Text Editor Card */
+          /* Direct On-Canvas Inline Text Input (Seamless, borderless Miro/Excalidraw style) */
           <div
-            className="fixed z-50 animate-in fade-in duration-75 flex flex-col items-start select-text p-2.5 rounded-2xl bg-zinc-950/95 backdrop-blur-2xl border border-sky-400/50 shadow-2xl shadow-black/80 ring-1 ring-white/10"
+            className="fixed z-50 flex flex-col items-start select-text"
             style={{
               left: `${textEditor.worldX * camera.zoom + camera.x}px`,
               top: `${textEditor.worldY * camera.zoom + camera.y}px`,
-              maxWidth: "min(600px, 90vw)",
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between w-full pb-1.5 mb-1.5 border-b border-white/10 gap-3">
-              <span className="text-[11px] font-mono text-zinc-300 font-bold tracking-tight flex items-center gap-1.5">
-                <Type className="w-3.5 h-3.5 text-sky-400" />
-                <span>{textEditor.editingId ? "Edit Board Text" : "Add Text"}</span>
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setFontStyle((prev) => (prev === "handwriting" ? "normal" : "handwriting"))}
-                  className="px-2 py-0.5 rounded-lg text-[10px] font-mono bg-white/10 hover:bg-white/20 text-zinc-200 transition-all cursor-pointer"
-                  title="Toggle font style: Handwriting vs Clean Sans"
-                >
-                  {fontStyle === "handwriting" ? "✍️ Handwriting" : "🔤 Sans"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTextEditor(null)}
-                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all text-xs cursor-pointer"
-                  title="Cancel (Esc)"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
             <textarea
               ref={textEditorRef}
               autoFocus
@@ -4031,44 +4002,26 @@ export const Whiteboard: React.FC = () => {
                   setTextEditor(null);
                 }
               }}
-              placeholder="Type notes, formulas, or labels..."
+              placeholder="Type directly on canvas..."
               rows={Math.max(1, textEditor.text.split("\n").length)}
-              className="outline-none bg-transparent p-1 m-0 resize-none w-full border-b border-white/10 focus:border-sky-400 transition-colors"
+              className="
+                outline-none bg-transparent p-0 m-0 resize-none border-b border-dashed border-sky-400/40
+                placeholder:text-zinc-500/50 transition-colors
+              "
               style={{
                 color: color,
+                caretColor: color,
                 fontFamily:
                   fontStyle === "handwriting"
                     ? "'Caveat', cursive"
                     : "'Inter', system-ui, -apple-system, sans-serif",
-                fontSize: `${Math.max(16, (strokeWidth === "ultrathin" ? 14 : strokeWidth === "thin" ? 18 : strokeWidth === "medium" ? 24 : strokeWidth === "thick" ? 32 : 44) * camera.zoom)}px`,
+                fontSize: `${Math.max(14, (strokeWidth === "ultrathin" ? 14 : strokeWidth === "thin" ? 18 : strokeWidth === "medium" ? 24 : strokeWidth === "thick" ? 32 : 44) * camera.zoom)}px`,
                 lineHeight: fontStyle === "handwriting" ? 1.25 : 1.35,
                 fontWeight: 600,
-                minWidth: "240px",
-                width: `${Math.max(240, (textEditor.text.length + 4) * (strokeWidth === "thin" ? 12 : 16) * camera.zoom)}px`,
+                minWidth: "160px",
+                width: `${Math.max(160, (textEditor.text.length + 3) * (strokeWidth === "thin" ? 12 : 16) * camera.zoom)}px`,
               }}
             />
-
-            <div className="flex items-center justify-between w-full pt-2 mt-1.5 border-t border-white/10 gap-3">
-              <span className="text-[10px] text-zinc-400 font-mono">
-                Enter ↵ to save • Shift+Enter new line
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setTextEditor(null)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => commitTextEditor(textEditor.text)}
-                  className="px-3.5 py-1 rounded-lg text-xs font-bold shadow-md bg-sky-500 hover:bg-sky-400 text-white transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
-                >
-                  Done ✓
-                </button>
-              </div>
-            </div>
           </div>
         )
       )}
