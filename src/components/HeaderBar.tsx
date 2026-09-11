@@ -36,6 +36,9 @@ import {
   Eye,
   Radio,
   FileCode,
+  Camera,
+  Trophy,
+  Atom,
 } from "lucide-react";
 import type { GridStyle, BoardTheme } from "../types/whiteboard";
 
@@ -79,6 +82,14 @@ interface HeaderBarProps {
   onOpenPlotter?: () => void;
   onToggleSpotlight?: () => void;
   isSpotlightActive?: boolean;
+  onToggleFacecam?: () => void;
+  isFacecamOpen?: boolean;
+  onTogglePoll?: () => void;
+  isPollOpen?: boolean;
+  onToggleStemBar?: () => void;
+  isStemBarOpen?: boolean;
+  onToggleSplitScreen?: () => void;
+  isSplitScreenActive?: boolean;
 }
 
 type DropdownMenu = "file" | "export" | "profile" | "template" | null;
@@ -123,6 +134,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenPlotter,
   onToggleSpotlight,
   isSpotlightActive = false,
+  onToggleFacecam,
+  isFacecamOpen = false,
+  onTogglePoll,
+  isPollOpen = false,
+  onToggleStemBar,
+  isStemBarOpen = false,
+  onToggleSplitScreen,
+  isSplitScreenActive = false,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
@@ -819,6 +838,58 @@ const THEME_OPTIONS: {
               }`}
             >
               <Radio className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Educator Facecam PiP (Unacademy style) */}
+          {onToggleFacecam && (
+            <button
+              onClick={onToggleFacecam}
+              title={isFacecamOpen ? "Turn Off Facecam (Alt+C)" : "Educator Facecam PiP (Alt+C)"}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isFacecamOpen ? "text-red-400 bg-red-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+              }`}
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Live MCQ Poll & Quiz Cards */}
+          {onTogglePoll && (
+            <button
+              onClick={onTogglePoll}
+              title={isPollOpen ? "Close Live Poll (Alt+Q)" : "Live MCQ Poll & Quiz Cards (Alt+Q)"}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isPollOpen ? "text-amber-300 bg-amber-500/25 font-bold" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* STEM Science & Math Quick-Bar */}
+          {onToggleStemBar && (
+            <button
+              onClick={onToggleStemBar}
+              title={isStemBarOpen ? "Close STEM Symbol Bar" : "1-Click STEM Science Bar"}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isStemBarOpen ? "text-sky-300 bg-sky-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+              }`}
+            >
+              <Atom className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Split-Screen Problem-Solving Layout */}
+          {onToggleSplitScreen && (
+            <button
+              onClick={onToggleSplitScreen}
+              title={isSplitScreenActive ? "Exit Split Screen Mode" : "Split-Screen Problem Layout (40% Question / 60% Board)"}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isSplitScreenActive ? "text-cyan-300 bg-cyan-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+              }`}
+            >
+              <Columns className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

@@ -81,6 +81,9 @@ import { VirtualRuler, type RulerState } from "./VirtualRuler";
 import { FunctionPlotterModal } from "./FunctionPlotterModal";
 import { downloadSlideSvg } from "../utils/svgExporter";
 import { findScribbleTargets } from "../utils/scribbleErase";
+import { EducatorCameraPiP } from "./EducatorCameraPiP";
+import { ClassroomPollWidget } from "./ClassroomPollWidget";
+import { StemSymbolBar } from "./StemSymbolBar";
 
 // ─── Pen style → perfect-freehand options ────────────────────────────────────
 
@@ -329,6 +332,14 @@ export const Whiteboard: React.FC = () => {
   const isSpotlightActiveRef = useRef(false);
   isSpotlightActiveRef.current = isSpotlightActive;
   const spotlightPosRef = useRef<{ x: number; y: number }>({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+
+  // ── Unacademy Studio Superpower States ────────────────────────────────────
+  const [isFacecamOpen, setIsFacecamOpen] = useState(false);
+  const [isPollOpen, setIsPollOpen] = useState(false);
+  const [isStemBarOpen, setIsStemBarOpen] = useState(false);
+  const [isSplitScreenActive, setIsSplitScreenActive] = useState(false);
+  const isSplitScreenActiveRef = useRef(false);
+  isSplitScreenActiveRef.current = isSplitScreenActive;
 
   const [rulerState, setRulerState] = useState<RulerState>({
     isActive: false,
@@ -685,6 +696,34 @@ export const Whiteboard: React.FC = () => {
 
       // ── Template overlay inside the sheet based on active gridStyle ───────────
       drawBoundedSheetTemplate(ctx, slideX, slideY, slideW, slideH, cam, style, theme);
+
+      // ── Split-Screen Problem-Solving Partition (40% Question / 60% Solution) ──
+      if (isSplitScreenActiveRef.current) {
+        const splitX = slideX + slideW * 0.4;
+        ctx.save();
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.45)";
+        ctx.lineWidth = 2 / cam.zoom;
+        ctx.setLineDash([8 / cam.zoom, 6 / cam.zoom]);
+        ctx.beginPath();
+        ctx.moveTo(splitX, slideY);
+        ctx.lineTo(splitX, slideY + slideH);
+        ctx.stroke();
+
+        ctx.textBaseline = "middle";
+        // Left Column Tag: Question / Problem
+        ctx.fillStyle = "rgba(56, 189, 248, 0.15)";
+        ctx.fillRect(slideX + 24 / cam.zoom, slideY + 20 / cam.zoom, 180 / cam.zoom, 28 / cam.zoom);
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = `bold ${11 / cam.zoom}px 'JetBrains Mono', monospace`;
+        ctx.fillText("📑 QUESTION / PROBLEM", slideX + 34 / cam.zoom, slideY + 34 / cam.zoom);
+
+        // Right Column Tag: Derivation / Solution
+        ctx.fillStyle = "rgba(74, 222, 128, 0.15)";
+        ctx.fillRect(splitX + 24 / cam.zoom, slideY + 20 / cam.zoom, 210 / cam.zoom, 28 / cam.zoom);
+        ctx.fillStyle = "#4ade80";
+        ctx.fillText("✏️ DERIVATION & SOLUTION", splitX + 34 / cam.zoom, slideY + 34 / cam.zoom);
+        ctx.restore();
+      }
     } else {
       // ── Infinite canvas: subtle ghost outline only ─────────────────────────
       ctx.strokeStyle = colors.primaryLine;
@@ -2274,6 +2313,38 @@ export const Whiteboard: React.FC = () => {
         return;
       }
 
+      // Toggle Educator Facecam HUD (Alt + C)
+      if (e.altKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        setIsFacecamOpen((prev) => !prev);
+        return;
+      }
+
+      // Toggle Classroom MCQ Poll (Alt + Q)
+      if (e.altKey && e.key.toLowerCase() === "q") {
+        e.preventDefault();
+        setIsPollOpen((prev) => !prev);
+        return;
+      }
+
+      // Toggle STEM Science & Math Symbol Bar (Alt + M)
+      if (e.altKey && e.key.toLowerCase() === "m") {
+        e.preventDefault();
+        setIsStemBarOpen((prev) => !prev);
+        return;
+      }
+
+      // Toggle Split-Screen Dual Mode (Alt + D)
+      if (e.altKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        setIsSplitScreenActive((p) => {
+          isSplitScreenActiveRef.current = !p;
+          scheduleRedraw();
+          return !p;
+        });
+        return;
+      }
+
       // Keyboard Shortcuts Cheat-sheet (? or Ctrl+/)
       if (e.key === "?" || ((e.ctrlKey || e.metaKey) && e.key === "/")) {
         e.preventDefault();
@@ -2634,6 +2705,86 @@ export const Whiteboard: React.FC = () => {
       scheduleRedraw();
     },
     [pendingMathPos, takeSnapshot, scheduleRedraw]
+  );
+
+  const handleInsertStemSymbol = useCallback(
+    (symbolLatex: string) => {
+      setUndoStack((u) => [...u, takeSnapshot()]);
+      setRedoStack([]);
+
+      const cam = cameraRef.current;
+      const canvas = canvasRef.current;
+      const centerX = canvas ? (canvas.offsetWidth / 2 - cam.x) / cam.zoom : 0;
+      const centerY = canvas ? (canvas.offsetHeight / 2 - cam.y) / cam.zoom : 0;
+
+      const fontSize =
+        strokeWidthRef.current === "ultrathin"
+          ? 18
+          : strokeWidthRef.current === "thin"
+          ? 24
+          : strokeWidthRef.current === "medium"
+          ? 32
+          : 44;
+
+      const newMathItem: MathItem = {
+        id: crypto.randomUUID(),
+        latex: symbolLatex,
+        x: centerX - 30,
+        y: centerY - 20,
+        fontSize,
+        color: colorRef.current,
+      };
+
+      const next = [...mathsRef.current, newMathItem];
+      mathsRef.current = next;
+      setMaths(next);
+      scheduleRedraw();
+    },
+    [takeSnapshot, scheduleRedraw]
+  );
+
+  const handleStampPoll = useCallback(
+    (pollData: { question: string; options: string[]; correctIndex: number }) => {
+      setUndoStack((u) => [...u, takeSnapshot()]);
+      setRedoStack([]);
+
+      const cam = cameraRef.current;
+      const canvas = canvasRef.current;
+      const startX = canvas ? (canvas.offsetWidth / 2 - cam.x) / cam.zoom - 160 : -160;
+      const startY = canvas ? (canvas.offsetHeight / 2 - cam.y) / cam.zoom - 120 : -120;
+
+      const letters = ["A", "B", "C", "D"];
+      const newTexts: TextItem[] = [];
+
+      newTexts.push({
+        id: crypto.randomUUID(),
+        text: `Q: ${pollData.question}`,
+        x: startX,
+        y: startY,
+        fontSize: 22,
+        color: "#fde047",
+        fontStyle: "normal",
+      });
+
+      pollData.options.forEach((opt, idx) => {
+        const isCorrect = idx === pollData.correctIndex;
+        newTexts.push({
+          id: crypto.randomUUID(),
+          text: `[${letters[idx]}] ${opt} ${isCorrect ? "✓ (Correct)" : ""}`,
+          x: startX + 16,
+          y: startY + 40 + idx * 32,
+          fontSize: 18,
+          color: isCorrect ? "#4ade80" : colorRef.current,
+          fontStyle: "normal",
+        });
+      });
+
+      const next = [...textsRef.current, ...newTexts];
+      textsRef.current = next;
+      setTexts(next);
+      scheduleRedraw();
+    },
+    [takeSnapshot, scheduleRedraw]
   );
 
   // ── Pointer Handlers ────────────────────────────────────────────────────────
@@ -3891,6 +4042,20 @@ export const Whiteboard: React.FC = () => {
           });
         }}
         isSpotlightActive={isSpotlightActive}
+        onToggleFacecam={() => setIsFacecamOpen((p) => !p)}
+        isFacecamOpen={isFacecamOpen}
+        onTogglePoll={() => setIsPollOpen((p) => !p)}
+        isPollOpen={isPollOpen}
+        onToggleStemBar={() => setIsStemBarOpen((p) => !p)}
+        isStemBarOpen={isStemBarOpen}
+        onToggleSplitScreen={() => {
+          setIsSplitScreenActive((p) => {
+            isSplitScreenActiveRef.current = !p;
+            scheduleRedraw();
+            return !p;
+          });
+        }}
+        isSplitScreenActive={isSplitScreenActive}
         onClear={handleClear}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         isPenActive={isLiveStylus}
@@ -4344,6 +4509,24 @@ export const Whiteboard: React.FC = () => {
         onNewNotebook={handleNewNotebook}
         isSavingCurrent={isSavingToCloud}
         activeDrawingId={activeCloudDrawingId}
+      />
+
+      {/* ── Unacademy Studio Superpower Overlays ── */}
+      <EducatorCameraPiP
+        isOpen={isFacecamOpen}
+        onClose={() => setIsFacecamOpen(false)}
+      />
+
+      <ClassroomPollWidget
+        isOpen={isPollOpen}
+        onClose={() => setIsPollOpen(false)}
+        onStampToCanvas={handleStampPoll}
+      />
+
+      <StemSymbolBar
+        isOpen={isStemBarOpen}
+        onClose={() => setIsStemBarOpen(false)}
+        onInsertSymbol={handleInsertStemSymbol}
       />
     </div>
   );
