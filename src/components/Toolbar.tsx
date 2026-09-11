@@ -30,8 +30,74 @@ import type {
   LineStyle,
   FillStyle,
   ShapeType,
+  PenStyle,
 } from "../types/whiteboard";
 import { STROKE_WIDTH_MAP } from "../types/whiteboard";
+
+/** Pen style definitions with visual preview SVG paths */
+const PEN_STYLES: {
+  value: PenStyle;
+  label: string;
+  preview: React.ReactNode;
+}[] = [
+  {
+    value: "pen",
+    label: "Pen",
+    preview: (
+      <svg viewBox="0 0 32 12" className="w-8 h-3">
+        <path d="M2 10 C6 8 10 4 16 6 C22 8 26 4 30 2" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    value: "brush",
+    label: "Brush (毛笔)",
+    preview: (
+      <svg viewBox="0 0 32 14" className="w-8 h-3.5">
+        <path d="M2 12 C5 9 8 3 16 5 C24 7 28 2 30 1" stroke="currentColor" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"/>
+        <path d="M2 12 C5 9 8 3 16 5 C24 7 28 2 30 1" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    value: "fountain",
+    label: "Fountain Pen",
+    preview: (
+      <svg viewBox="0 0 32 12" className="w-8 h-3">
+        <path d="M2 10 C6 9 10 5 16 6 C22 7 26 3 30 1" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        <path d="M2 10 C6 8 10 4 16 6" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.6"/>
+      </svg>
+    ),
+  },
+  {
+    value: "marker",
+    label: "Marker",
+    preview: (
+      <svg viewBox="0 0 32 12" className="w-8 h-3">
+        <path d="M2 9 C8 8 16 7 30 3" stroke="currentColor" strokeWidth="5" fill="none" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    value: "pencil",
+    label: "Pencil",
+    preview: (
+      <svg viewBox="0 0 32 12" className="w-8 h-3">
+        <path d="M2 10 C6 9 10 5 16 6 C22 7 26 3 30 2" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.5" strokeDasharray="2 1"/>
+        <path d="M2 10 C6 9 10 5 16 6 C22 7 26 3 30 2" stroke="currentColor" strokeWidth="0.8" fill="none" strokeLinecap="round" opacity="0.9"/>
+      </svg>
+    ),
+  },
+  {
+    value: "chisel",
+    label: "Chisel (Calligraphy)",
+    preview: (
+      <svg viewBox="0 0 32 14" className="w-8 h-3.5">
+        <path d="M2 12 L8 4 L14 8 L20 2 L28 6 L30 2" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="square" strokeLinejoin="miter"/>
+      </svg>
+    ),
+  },
+];
 
 interface ToolbarProps {
   mode: ToolMode;
@@ -55,6 +121,8 @@ interface ToolbarProps {
   smartSnapEnabled?: boolean;
   onToggleSmartSnap?: () => void;
   isFiniteMode?: boolean;
+  penStyle?: PenStyle;
+  onPenStyleChange?: (s: PenStyle) => void;
 }
 
 /** Palette swatches for dark (infinite) canvas mode */
@@ -119,8 +187,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   smartSnapEnabled,
   onToggleSmartSnap,
   isFiniteMode = false,
+  penStyle = "pen",
+  onPenStyleChange,
 }) => {
   const [shapesOpen, setShapesOpen] = useState(false);
+  const [penStyleOpen, setPenStyleOpen] = useState(false);
 
   // Pick the right color palette for current mode
   const ACTIVE_PALETTE = isFiniteMode ? LIGHT_PALETTE : DARK_PALETTE;
@@ -330,6 +401,56 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             {!isFiniteMode && <><span className="hidden sm:inline">Pen</span><span className="text-[9px] font-mono opacity-50">P</span></>}
           </button>
 
+          {/* ── Pen Style Picker (only when Pen is active) ── */}
+          {mode === "draw" && onPenStyleChange && (
+            <div className="relative">
+              <button
+                onClick={() => setPenStyleOpen((p) => !p)}
+                title={`Brush style: ${PEN_STYLES.find(s => s.value === penStyle)?.label ?? penStyle}`}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+                  isFiniteMode
+                    ? "text-zinc-700 hover:text-zinc-900 hover:bg-black/10 border border-black/10"
+                    : "text-zinc-300 hover:text-white hover:bg-white/10 border border-white/10"
+                } ${penStyleOpen ? (isFiniteMode ? "bg-black/10" : "bg-white/10") : ""}`}
+              >
+                {/* Live preview of current style */}
+                <span className="w-8 h-3 flex items-center opacity-80">
+                  {PEN_STYLES.find(s => s.value === penStyle)?.preview}
+                </span>
+                <span className="text-[9px] opacity-50">▾</span>
+              </button>
+
+              {/* Style dropdown */}
+              {penStyleOpen && (
+                <div className={`
+                  absolute z-50
+                  ${isFiniteMode ? "left-full ml-2 top-0" : "bottom-full mb-2 left-0"}
+                  flex flex-col gap-0.5 p-1.5 min-w-[175px]
+                  rounded-2xl bg-zinc-950/96 backdrop-blur-2xl
+                  border border-white/15 shadow-2xl shadow-black/80
+                  animate-in fade-in slide-in-from-bottom-2 duration-150
+                `}>
+                  <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1">
+                    Brush Style
+                  </div>
+                  {PEN_STYLES.map((s) => (
+                    <button
+                      key={s.value}
+                      onClick={() => { onPenStyleChange(s.value); setPenStyleOpen(false); }}
+                      className={`flex items-center gap-3 px-2.5 py-2 rounded-xl text-xs font-medium transition-all ${
+                        penStyle === s.value
+                          ? "bg-sky-500 text-white font-bold"
+                          : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <span className="w-10 flex-shrink-0 opacity-90">{s.preview}</span>
+                      <span>{s.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {/* Highlighter */}
           <button
             onClick={() => { onModeChange("highlighter"); setShapesOpen(false); }}

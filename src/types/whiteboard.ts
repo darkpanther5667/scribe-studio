@@ -15,6 +15,17 @@ export type LineStyle = "solid" | "dashed" | "dotted";
 /** Shape fill options: None (outline only), Semi-transparent fill */
 export type FillStyle = "none" | "semi";
 
+/**
+ * Pen brush style — controls how the perfect-freehand outline is computed.
+ * - pen       : balanced pressure-sensitive ink (default)
+ * - brush     : Chinese calligraphy brush — dramatic taper, wide body
+ * - fountain  : fountain pen — medium taper, elegant nib shape
+ * - marker    : flat-cap marker — almost zero thinning, round ends
+ * - pencil    : pencil — light, grainy, slightly irregular
+ * - chisel    : flat calligraphy nib — angle-based width variation
+ */
+export type PenStyle = "pen" | "brush" | "fountain" | "marker" | "pencil" | "chisel";
+
 /** A fully recorded stroke, highlighter, or eraser path committed to history */
 export interface Stroke {
   id: string;
@@ -24,6 +35,7 @@ export interface Stroke {
   isEraser?: boolean;
   isHighlighter?: boolean;
   lineStyle?: LineStyle;
+  penStyle?: PenStyle;
 }
 
 /** Geometric shapes for teaching (Math, Physics, Diagrams) */

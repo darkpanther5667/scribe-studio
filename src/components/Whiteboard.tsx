@@ -12,6 +12,7 @@ import type {
   LaserPoint,
   LineStyle,
   PastedImage,
+  PenStyle,
   ResizeHandle,
   ShapeItem,
   StickyNote,
@@ -44,27 +45,117 @@ import { SlideTray } from "./SlideTray";
 import { exportClassNotesPdf } from "../utils/pdfNotesExporter";
 import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon, Type } from "lucide-react";
 
-// ─── perfect-freehand options factory ────────────────────────────────────────
+// ─── Pen style → perfect-freehand options ────────────────────────────────────
+
+function getPenStrokeOptions(style: PenStyle | undefined, width: number) {
+  switch (style) {
+    // ── Chinese / East-Asian Calligraphy Brush ──────────────────────────────
+    // Thick body, dramatic ink-wash taper at both ends, highly pressure-responsive
+    case "brush":
+      return {
+        size: width * 2.8,
+        thinning: 0.92,
+        smoothing: 0.7,
+        streamline: 0.35,
+        easing: (t: number) => t * t * t,
+        start: { taper: width * 5, easing: (t: number) => t * t * t, cap: true },
+        end:   { taper: width * 4, easing: (t: number) => t * t * t, cap: true },
+        simulatePressure: false,
+        last: true,
+      };
+
+    // ── Fountain Pen ─────────────────────────────────────────────────────────
+    // Elegant nib — moderate taper, flows cleanly; wider at pressure peaks
+    case "fountain":
+      return {
+        size: width * 1.4,
+        thinning: 0.65,
+        smoothing: 0.65,
+        streamline: 0.5,
+        easing: (t: number) => Math.sin((t * Math.PI) / 2),
+        start: { taper: width * 0.5, easing: (t: number) => t, cap: false },
+        end:   { taper: width * 2.5, easing: (t: number) => t * t, cap: true },
+        simulatePressure: false,
+        last: true,
+      };
+
+    // ── Flat Marker ──────────────────────────────────────────────────────────
+    // Almost zero thinning, round flat caps, constant thick line
+    case "marker":
+      return {
+        size: width * 1.8,
+        thinning: 0.08,
+        smoothing: 0.8,
+        streamline: 0.6,
+        easing: (t: number) => t,
+        start: { taper: 0, cap: true },
+        end:   { taper: 0, cap: true },
+        simulatePressure: false,
+        last: true,
+      };
+
+    // ── Pencil ───────────────────────────────────────────────────────────────
+    // Light, thin, slightly irregular — low pressure gives faint trace
+    case "pencil":
+      return {
+        size: width * 0.9,
+        thinning: 0.72,
+        smoothing: 0.3,
+        streamline: 0.2,
+        easing: (t: number) => t,
+        start: { taper: width * 0.3, cap: true },
+        end:   { taper: width * 0.3, cap: true },
+        simulatePressure: false,
+        last: true,
+      };
+
+    // ── Chisel / Flat Calligraphy Nib ────────────────────────────────────────
+    // Italic-nib effect: strokes going diagonally are thick, horizontal = thin
+    case "chisel":
+      return {
+        size: width * 2.0,
+        thinning: 0.5,
+        smoothing: 0.9,
+        streamline: 0.7,
+        easing: (t: number) => Math.sin((t * Math.PI) / 2),
+        start: { taper: 0, cap: false },
+        end:   { taper: 0, cap: false },
+        simulatePressure: false,
+        last: true,
+      };
+
+    // ── Default Pen ──────────────────────────────────────────────────────────
+    default:
+    case "pen":
+      return {
+        size: width,
+        thinning: 0.55,
+        smoothing: 0.55,
+        streamline: 0.45,
+        easing: (t: number) => Math.sin((t * Math.PI) / 2),
+        start: { taper: width * 1.8, easing: (t: number) => t * t, cap: true },
+        end:   { taper: width * 1.2, easing: (t: number) => t * t, cap: true },
+        simulatePressure: false,
+        last: true,
+      };
+  }
+}
+
 function makePfOptions(width: number, isHighlighter = false) {
-  return {
-    size: width,
-    thinning: isHighlighter ? 0.05 : 0.55,
-    smoothing: 0.55,
-    streamline: 0.45,
-    easing: (t: number) => Math.sin((t * Math.PI) / 2),
-    start: {
-      taper: isHighlighter ? 0 : width * 1.8,
-      easing: (t: number) => t * t,
-      cap: true,
-    },
-    end: {
-      taper: isHighlighter ? 0 : width * 1.2,
-      easing: (t: number) => t * t,
-      cap: true,
-    },
-    simulatePressure: false,
-    last: true,
-  };
+  if (isHighlighter) {
+    return {
+      size: width,
+      thinning: 0.05,
+      smoothing: 0.55,
+      streamline: 0.45,
+      easing: (t: number) => Math.sin((t * Math.PI) / 2),
+      start: { taper: 0, cap: true },
+      end:   { taper: 0, cap: true },
+      simulatePressure: false,
+      last: true,
+    };
+  }
+  return getPenStrokeOptions("pen", width);
 }
 
 // ─── Lasso Selection Data Structure ──────────────────────────────────────────
@@ -133,6 +224,10 @@ export const Whiteboard: React.FC = () => {
   const [lineStyle, setLineStyle] = useState<LineStyle>("solid");
   const lineStyleRef = useRef<LineStyle>(lineStyle);
   lineStyleRef.current = lineStyle;
+
+  const [penStyle, setPenStyle] = useState<PenStyle>("pen");
+  const penStyleRef = useRef<PenStyle>(penStyle);
+  penStyleRef.current = penStyle;
 
   const [fillStyle, setFillStyle] = useState<FillStyle>("none");
   const fillStyleRef = useRef<FillStyle>(fillStyle);
@@ -580,14 +675,24 @@ export const Whiteboard: React.FC = () => {
 
       const rawPoints = stroke.points.map((p) => [p.x, p.y, p.pressure]);
       const baseWidth = STROKE_WIDTH_MAP[stroke.width] ?? 4;
-      const pfOptions = makePfOptions(baseWidth, false);
+      const pfOptions = getPenStrokeOptions(stroke.penStyle ?? "pen", baseWidth);
       const outlinePoints = getStroke(rawPoints, pfOptions);
 
       if (outlinePoints.length === 0) continue;
 
       const path = getPath2DFromStroke(outlinePoints);
-      ctx.fillStyle = stroke.color;
-      ctx.fill(path);
+
+      // Pencil style: draw with slight transparency for paper texture feel
+      if (stroke.penStyle === "pencil") {
+        ctx.save();
+        ctx.globalAlpha = 0.75;
+        ctx.fillStyle = stroke.color;
+        ctx.fill(path);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = stroke.color;
+        ctx.fill(path);
+      }
     }
 
     // 10. Render Glowing Laser Comet Trail
@@ -2102,6 +2207,7 @@ export const Whiteboard: React.FC = () => {
         width: strokeWidthRef.current,
         isHighlighter: currentMode === "highlighter",
         lineStyle: lineStyleRef.current,
+        penStyle: currentMode === "highlighter" ? undefined : penStyleRef.current,
         points: [{ x: worldPoint.x, y: worldPoint.y, pressure }],
       };
 
@@ -2940,6 +3046,8 @@ export const Whiteboard: React.FC = () => {
         smartSnapEnabled={smartSnapEnabled}
         onToggleSmartSnap={() => setSmartSnapEnabled((p) => !p)}
         isFiniteMode={isFiniteMode}
+        penStyle={penStyle}
+        onPenStyleChange={setPenStyle}
       />
 
       {/* ── Native PDF Document Import Modal ── */}
