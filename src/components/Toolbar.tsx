@@ -238,62 +238,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <>
       {/* ═══════════════════════════════════════════════════════════════════
-          1. BOTTOM-LEFT DOCK: History & Viewport Navigation
+          1. BOTTOM-LEFT DOCK: Viewport Zoom
           ═══════════════════════════════════════════════════════════════════ */}
       <div
         className="
-          fixed bottom-5 left-5 z-40
-          flex items-center gap-1.5 px-2.5 py-1.5
+          fixed bottom-5 left-5 z-30
+          flex items-center gap-1 px-2 py-1
           rounded-2xl bg-zinc-950/85 backdrop-blur-2xl
-          border border-white/10 shadow-[0_16px_36px_rgba(0,0,0,0.8)]
+          border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)]
           select-none transition-all duration-200
         "
         onPointerDown={(e) => e.stopPropagation()}
       >
-        {/* Undo */}
-        <button
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="Undo (Ctrl+Z)"
-          aria-label="Undo last action"
-          className={`
-            p-1.5 rounded-xl transition-all duration-150 active:scale-90
-            ${
-              canUndo
-                ? "text-zinc-300 hover:text-white hover:bg-white/10"
-                : "text-zinc-600 cursor-not-allowed"
-            }
-          `}
-        >
-          <Undo2 className="w-4 h-4" />
-        </button>
-
-        {/* Redo */}
-        <button
-          onClick={onRedo}
-          disabled={!canRedo}
-          title="Redo (Ctrl+Y)"
-          aria-label="Redo action"
-          className={`
-            p-1.5 rounded-xl transition-all duration-150 active:scale-90
-            ${
-              canRedo
-                ? "text-zinc-300 hover:text-white hover:bg-white/10"
-                : "text-zinc-600 cursor-not-allowed"
-            }
-          `}
-        >
-          <Redo2 className="w-4 h-4" />
-        </button>
-
-        <div className="w-px h-4 bg-white/10 shrink-0 mx-0.5" />
-
         {/* Zoom Out */}
         <button
           onClick={onZoomOut}
-          title="Zoom Out"
+          title="Zoom Out (-)"
           aria-label="Zoom out"
-          className="p-1.5 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 transition-all duration-150 active:scale-90"
+          className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
         >
           <Minus className="w-3.5 h-3.5" />
         </button>
@@ -303,7 +265,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onClick={onResetCamera}
           title="Reset Zoom to 100% & Center (Click)"
           className="
-            px-2 py-0.5 rounded-lg font-mono text-[11px] font-semibold text-zinc-300
+            px-1.5 py-0.5 rounded-lg font-mono text-[11px] font-semibold text-zinc-300
             hover:text-white hover:bg-white/10 transition-all duration-150 active:scale-95
           "
         >
@@ -313,9 +275,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* Zoom In */}
         <button
           onClick={onZoomIn}
-          title="Zoom In"
+          title="Zoom In (+)"
           aria-label="Zoom in"
-          className="p-1.5 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 transition-all duration-150 active:scale-90"
+          className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
         >
           <Plus className="w-3.5 h-3.5" />
         </button>
@@ -324,9 +286,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           onClick={onResetCamera}
           title="Center Canvas (100%)"
-          className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all duration-150 active:scale-90"
+          className="p-1 rounded-lg text-zinc-500 hover:text-white hover:bg-white/10 transition-all active:scale-90 ml-0.5"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
+          <RotateCcw className="w-3 h-3" />
         </button>
       </div>
 
@@ -348,8 +310,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                animate-[slideInLeft_0.3s_ease-out]`
             : // ── Infinite canvas mode: bottom-center horizontal pill ─────────
               `fixed bottom-5 left-1/2 -translate-x-1/2
-               flex items-center gap-2 px-3 py-2
-               rounded-2xl bg-zinc-950/85 backdrop-blur-2xl
+               flex items-center gap-1.5 px-2.5 py-1.5
+               rounded-2xl bg-zinc-950/90 backdrop-blur-2xl
                border border-white/10
                shadow-[0_20px_50px_rgba(0,0,0,0.9)]
                z-40 select-none
@@ -357,20 +319,50 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         }
         onPointerDown={(e) => e.stopPropagation()}
       >
-        {/* ── Cluster 1: Navigation & Lasso ── */}
-        <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-0.5 ${isFiniteMode ? "bg-black/[0.04] rounded-xl p-1 border border-black/8" : "bg-white/[0.03] p-1 rounded-xl border border-white/5"}`}>
-          {/* Pan — hidden in finite mode since pan is disabled */}
+        {/* ── Cluster 1: History, Navigation & Selection ── */}
+        <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-0.5 ${isFiniteMode ? "bg-black/[0.04] rounded-xl p-0.5 border border-black/8" : "bg-white/[0.03] p-0.5 rounded-xl border border-white/5"}`}>
+          {/* Undo */}
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+            aria-label="Undo last action"
+            className={`p-1.5 rounded-lg transition-all duration-150 active:scale-90 ${
+              canUndo
+                ? "text-zinc-300 hover:text-white hover:bg-white/10"
+                : "text-zinc-600 cursor-not-allowed"
+            }`}
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Redo */}
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Y)"
+            aria-label="Redo action"
+            className={`p-1.5 rounded-lg transition-all duration-150 active:scale-90 ${
+              canRedo
+                ? "text-zinc-300 hover:text-white hover:bg-white/10"
+                : "text-zinc-600 cursor-not-allowed"
+            }`}
+          >
+            <Redo2 className="w-3.5 h-3.5" />
+          </button>
+
+          <div className={`w-px h-3.5 ${isFiniteMode ? "bg-black/10" : "bg-white/10"} mx-0.5`} />
+
+          {/* Pan — hidden in finite mode */}
           {!isFiniteMode && (
             <button
               onClick={() => { onModeChange("pan"); setShapesOpen(false); }}
-              title="Pan Blackboard (H) — or hold Spacebar anytime"
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+              title="Pan Blackboard (H) — or hold Spacebar"
+              className={`p-1.5 rounded-lg transition-all duration-150 ${
                 mode === "pan" ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/20" : "text-zinc-400 hover:text-white hover:bg-white/10"
               }`}
             >
               <Hand className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Pan</span>
-              <span className="text-[9px] font-mono opacity-50">H</span>
             </button>
           )}
 
@@ -378,31 +370,29 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <button
             onClick={() => { onModeChange("lasso"); setShapesOpen(false); }}
             title="Lasso Selection (S)"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "lasso"
                 ? "bg-cyan-400 text-zinc-950 font-bold shadow-md shadow-cyan-400/30"
                 : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <LassoSelect className="w-3.5 h-3.5" />
-            {!isFiniteMode && <><span className="hidden md:inline">Lasso</span><span className="text-[9px] font-mono opacity-50">S</span></>}
           </button>
         </div>
 
         {/* ── Cluster 2: Drawing & Inking ── */}
-        <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-0.5 ${isFiniteMode ? "bg-black/[0.04] rounded-xl p-1 border border-black/8" : "bg-white/[0.03] p-1 rounded-xl border border-white/5"}`}>
+        <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-0.5 ${isFiniteMode ? "bg-black/[0.04] rounded-xl p-0.5 border border-black/8" : "bg-white/[0.03] p-0.5 rounded-xl border border-white/5"}`}>
           {/* Pen */}
           <button
             onClick={() => { onModeChange("draw"); setShapesOpen(false); }}
             title="Pen (P)"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "draw"
                 ? isFiniteMode ? "bg-zinc-900 text-white font-semibold shadow-md" : "bg-white text-zinc-950 font-semibold shadow-md shadow-white/20"
                 : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <PenLine className="w-3.5 h-3.5" />
-            {!isFiniteMode && <><span className="hidden sm:inline">Pen</span><span className="text-[9px] font-mono opacity-50">P</span></>}
           </button>
 
           {/* ── Pen Style Picker (only when Pen is active) ── */}
@@ -411,17 +401,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <button
                 onClick={() => setPenStyleOpen((p) => !p)}
                 title={`Brush style: ${PEN_STYLES.find(s => s.value === penStyle)?.label ?? penStyle}`}
-                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+                className={`flex items-center gap-0.5 px-1.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
                   isFiniteMode
                     ? "text-zinc-700 hover:text-zinc-900 hover:bg-black/10 border border-black/10"
                     : "text-zinc-300 hover:text-white hover:bg-white/10 border border-white/10"
                 } ${penStyleOpen ? (isFiniteMode ? "bg-black/10" : "bg-white/10") : ""}`}
               >
-                {/* Live preview of current style */}
-                <span className="w-8 h-3 flex items-center opacity-80">
+                <span className="w-6 h-3 flex items-center opacity-80">
                   {PEN_STYLES.find(s => s.value === penStyle)?.preview}
                 </span>
-                <span className="text-[9px] opacity-50">▾</span>
+                <span className="text-[8px] opacity-50">▾</span>
               </button>
 
               {/* Style dropdown */}
@@ -455,50 +444,49 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               )}
             </div>
           )}
+
           {/* Highlighter */}
           <button
             onClick={() => { onModeChange("highlighter"); setShapesOpen(false); }}
             title="Highlighter (B)"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "highlighter"
                 ? "bg-yellow-400 text-zinc-950 font-bold shadow-md shadow-yellow-400/30"
                 : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <Highlighter className="w-3.5 h-3.5" />
-            {!isFiniteMode && <><span className="hidden sm:inline">Highlight</span><span className="text-[9px] font-mono opacity-50">B</span></>}
           </button>
 
           {/* Eraser */}
           <button
             onClick={() => { onModeChange("erase"); setShapesOpen(false); }}
             title="Eraser (E)"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "erase"
                 ? isFiniteMode ? "bg-zinc-900 text-white font-semibold shadow-md" : "bg-white text-zinc-950 font-semibold shadow-md shadow-white/20"
                 : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <Eraser className="w-3.5 h-3.5" />
-            {!isFiniteMode && <><span className="hidden sm:inline">Eraser</span><span className="text-[9px] font-mono opacity-50">E</span></>}
           </button>
         </div>
 
         {/* ── Cluster 3: Geometric Shapes & Objects ── */}
-        <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-0.5 ${isFiniteMode ? "bg-black/[0.04] rounded-xl p-1 border border-black/8" : "bg-white/[0.03] p-1 rounded-xl border border-white/5"}`}>
+        <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-0.5 ${isFiniteMode ? "bg-black/[0.04] rounded-xl p-0.5 border border-black/8" : "bg-white/[0.03] p-0.5 rounded-xl border border-white/5"}`}>
           {/* Shapes Dropdown */}
           <div className="relative">
             <button
               onClick={() => setShapesOpen((prev) => !prev)}
               title="Geometric Shapes (L, A, R, C, Y)"
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+              className={`flex items-center gap-0.5 p-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
                 isShapeActive
                   ? "bg-sky-500 text-white font-semibold shadow-md shadow-sky-500/30"
                   : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
               }`}
             >
               {getActiveShapeIcon()}
-              {!isFiniteMode && <><span className="hidden sm:inline">Shapes</span><span className="text-[10px] opacity-60">▾</span></>}
+              <span className="text-[8px] opacity-50">▾</span>
             </button>
 
             {/* Shapes Floating Menu */}
@@ -530,61 +518,57 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <button
             onClick={() => { onModeChange("text"); setShapesOpen(false); }}
             title="Typed Text (T)"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "text"
                 ? "bg-purple-500 text-white font-bold shadow-md shadow-purple-500/30"
                 : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <Type className="w-3.5 h-3.5" />
-            {!isFiniteMode && <><span className="hidden sm:inline">Text</span><span className="text-[9px] font-mono opacity-50">T</span></>}
           </button>
 
           {/* Math & LaTeX Formula */}
           <button
             onClick={() => { onModeChange("math"); setShapesOpen(false); }}
             title="Math & LaTeX Formula (M)"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "math"
                 ? "bg-cyan-400 text-zinc-950 font-bold shadow-md shadow-cyan-400/30"
                 : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <span className="font-serif italic font-bold text-xs leading-none">√x</span>
-            {!isFiniteMode && <><span className="hidden sm:inline">Math</span><span className="text-[9px] font-mono opacity-50">M</span></>}
           </button>
 
           {/* Sticky Note */}
           <button
             onClick={() => { onModeChange("note"); setShapesOpen(false); }}
             title="Sticky Note (N)"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "note"
                 ? "bg-amber-400 text-zinc-950 font-bold shadow-md shadow-amber-400/30"
                 : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <StickyNote className="w-3.5 h-3.5" />
-            {!isFiniteMode && <><span className="hidden sm:inline">Note</span><span className="text-[9px] font-mono opacity-50">N</span></>}
           </button>
 
           {/* Laser Pointer */}
           <button
             onClick={() => { onModeChange("laser"); setShapesOpen(false); }}
             title="Laser Pointer (K)"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "laser"
                 ? "bg-rose-500 text-white font-bold shadow-md shadow-rose-500/40"
                 : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <Radio className="w-3.5 h-3.5" />
-            {!isFiniteMode && <><span className="hidden sm:inline">Laser</span><span className="text-[9px] font-mono opacity-50">K</span></>}
           </button>
         </div>
 
         {/* ── Section Divider ── */}
-        <div className={isFiniteMode ? "h-px w-6 bg-black/15 shrink-0 my-0.5" : "w-px h-6 bg-white/10 shrink-0 mx-0.5"} />
+        <div className={isFiniteMode ? "h-px w-6 bg-black/15 shrink-0 my-0.5" : "w-px h-5 bg-white/10 shrink-0 mx-0.5"} />
 
         {/* ── Cluster 4: Contextual Active Tool Styling ── */}
         {mode === "erase" ? (
@@ -597,7 +581,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 title={`Eraser ${label}`}
                 onClick={() => onWidthChange(value)}
                 className={`
-                  flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-150
+                  flex items-center justify-center w-6 h-6 rounded-lg transition-all duration-150
                   ${
                     strokeWidth === value
                       ? "bg-white/20 text-white ring-1 ring-white/30"
@@ -614,16 +598,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
         ) : (
           /* Inking / Shapes Colors, Tips, and Stroke Styles */
-          <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-2`}>
-            {/* Color Swatches — dark inks in sheet mode, bright chalks in canvas mode */}
-            <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-1 ${isFiniteMode ? "bg-black/[0.04] p-1 rounded-xl border border-black/8" : "bg-white/[0.03] p-1 rounded-xl border border-white/5"}`}>
+          <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-1.5`}>
+            {/* Color Swatches */}
+            <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-1 ${isFiniteMode ? "bg-black/[0.04] p-0.5 rounded-xl border border-black/8" : "bg-white/[0.03] p-0.5 rounded-xl border border-white/5"}`}>
               {ACTIVE_PALETTE.map(({ value, label, glow }) => (
                 <button
                   key={value}
                   title={label}
                   onClick={() => onColorChange(value)}
                   className={`
-                    w-6 h-6 rounded-full transition-transform duration-150 relative
+                    w-5 h-5 rounded-full transition-transform duration-150 relative
                     ${color === value ? `scale-110 ring-2 ${isFiniteMode ? "ring-zinc-800" : "ring-white"} ${glow}` : "opacity-80 hover:opacity-100 hover:scale-105"}
                   `}
                   style={{ backgroundColor: value }}
@@ -636,14 +620,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   type="color"
                   value={color}
                   onChange={(e) => onColorChange(e.target.value)}
-                  className="w-6 h-6 opacity-0 absolute inset-0 cursor-pointer"
+                  className="w-5 h-5 opacity-0 absolute inset-0 cursor-pointer"
                   title="Custom Pigment Color"
                 />
                 <div
-                  className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${isFiniteMode ? "border-black/20 text-zinc-500 hover:text-zinc-900" : "border-white/20 text-zinc-400 hover:text-white"}`}
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${isFiniteMode ? "border-black/20 text-zinc-500 hover:text-zinc-900" : "border-white/20 text-zinc-400 hover:text-white"}`}
                   title="Custom Color Picker"
                 >
-                  <Palette className="w-3 h-3" />
+                  <Palette className="w-2.5 h-2.5" />
                 </div>
               </div>
             </div>

@@ -3,21 +3,16 @@ import {
   X,
   LogIn,
   UserPlus,
-  Key,
   Database,
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Settings,
 } from "lucide-react";
 import {
   signInWithEmail,
   signUpWithEmail,
   signInWithOAuth,
   type OAuthProvider,
-  isSupabaseConfigured,
-  saveSupabaseConfig,
-  getSupabaseConfig,
 } from "../lib/supabase";
 
 interface AuthModalProps {
@@ -38,40 +33,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Supabase Configuration settings section
-  const [showConfig, setShowConfig] = useState(!isSupabaseConfigured());
-  const initialConfig = getSupabaseConfig();
-  const [supabaseUrl, setSupabaseUrl] = useState(initialConfig.url);
-  const [supabaseAnonKey, setSupabaseAnonKey] = useState(initialConfig.anonKey);
-  const [configSaved, setConfigSaved] = useState(false);
-
   if (!isOpen) return null;
-
-  const handleSaveConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabaseUrl.trim().startsWith("https://")) {
-      setError("Project URL must start with https://");
-      return;
-    }
-    saveSupabaseConfig(supabaseUrl, supabaseAnonKey);
-    setConfigSaved(true);
-    setError(null);
-    setTimeout(() => {
-      setConfigSaved(false);
-      setShowConfig(false);
-    }, 1200);
-  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
-
-    if (!isSupabaseConfigured()) {
-      setShowConfig(true);
-      setError("Please configure your Supabase Project URL and Anon Key first.");
-      return;
-    }
 
     if (!email.trim() || !password.trim()) {
       setError("Please fill in both email and password.");
@@ -104,12 +71,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleOAuth = async (provider: OAuthProvider) => {
     setError(null);
     setSuccessMsg(null);
-
-    if (!isSupabaseConfigured()) {
-      setShowConfig(true);
-      setError("Please configure your Supabase Project URL and Anon Key first.");
-      return;
-    }
 
     setLoading(true);
     try {
@@ -306,57 +267,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </svg>
             <span>GitHub</span>
           </button>
-        </div>
-
-        {/* Supabase Project Credentials Accordion */}
-        <div className="pt-2 border-t border-white/10">
-          <button
-            type="button"
-            onClick={() => setShowConfig((p) => !p)}
-            className="flex items-center justify-between w-full text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors"
-          >
-            <span className="flex items-center gap-1.5 font-mono">
-              <Settings className="w-3.5 h-3.5 text-zinc-500" />
-              Supabase Project Connection
-            </span>
-            <span className="text-[10px] text-emerald-400">
-              {isSupabaseConfigured() ? "Configured ✓" : "Setup Required"}
-            </span>
-          </button>
-
-          {showConfig && (
-            <form onSubmit={handleSaveConfig} className="flex flex-col gap-2.5 mt-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-mono text-zinc-400">Project URL</label>
-                <input
-                  type="text"
-                  placeholder="https://xyzcompany.supabase.co"
-                  value={supabaseUrl}
-                  onChange={(e) => setSupabaseUrl(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-white/10 text-xs font-mono text-zinc-200 outline-none focus:border-emerald-400"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-mono text-zinc-400">Anon Public Key</label>
-                <input
-                  type="password"
-                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-                  value={supabaseAnonKey}
-                  onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-white/10 text-xs font-mono text-zinc-200 outline-none focus:border-emerald-400"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-all active:scale-95"
-              >
-                <Key className="w-3 h-3 text-emerald-400" />
-                <span>{configSaved ? "Saved!" : "Save Credentials"}</span>
-              </button>
-            </form>
-          )}
         </div>
       </div>
     </div>

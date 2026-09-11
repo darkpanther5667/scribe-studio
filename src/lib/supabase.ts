@@ -16,6 +16,9 @@ export interface CloudDrawingRecord {
 const STORAGE_KEY_URL = "tapboard_supabase_url";
 const STORAGE_KEY_ANON = "tapboard_supabase_anon_key";
 
+const DEFAULT_SUPABASE_URL = "https://tvjnfeysrsomipnjuxvd.supabase.co";
+const DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_mhLNLpNqRT57cftDJZvx9A_OyiQNyCG";
+
 export function getSupabaseConfig(): { url: string; anonKey: string } {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL || "").trim();
   const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
@@ -23,8 +26,8 @@ export function getSupabaseConfig(): { url: string; anonKey: string } {
   const localKey = (localStorage.getItem(STORAGE_KEY_ANON) || "").trim();
 
   return {
-    url: envUrl || localUrl,
-    anonKey: envKey || localKey,
+    url: envUrl || localUrl || DEFAULT_SUPABASE_URL,
+    anonKey: envKey || localKey || DEFAULT_SUPABASE_ANON_KEY,
   };
 }
 
