@@ -140,8 +140,18 @@ export type ToolMode =
   | "erase"
   | "pan";
 
-/** Educator Grid styles */
-export type GridStyle = "dots" | "grid" | "none";
+/** Educator Template Paper styles */
+export type GridStyle =
+  | "dots"
+  | "grid"
+  | "ruled"
+  | "cornell"
+  | "isometric"
+  | "music"
+  | "none";
+
+/** Educator Board Themes */
+export type BoardTheme = "dark" | "light" | "blueprint";
 
 /** Palette color for strokes, shapes, and notes */
 export type StrokeColor = string;
@@ -171,5 +181,6 @@ export interface Slide {
   images: PastedImage[];
   maths?: MathItem[];
   gridStyle?: GridStyle;
+  boardTheme?: BoardTheme;
   backgroundColor?: string;
 }

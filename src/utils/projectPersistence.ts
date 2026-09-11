@@ -1,4 +1,4 @@
-import type { Slide, GridStyle } from "../types/whiteboard";
+import type { Slide, GridStyle, BoardTheme } from "../types/whiteboard";
 
 export interface TapboardProjectData {
   version: 1;
@@ -7,6 +7,7 @@ export interface TapboardProjectData {
   slides: Slide[];
   currentSlideIndex: number;
   gridStyle: GridStyle;
+  boardTheme?: BoardTheme;
   isFiniteMode: boolean;
   exportedAt: string;
 }

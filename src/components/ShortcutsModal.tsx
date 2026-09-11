@@ -42,7 +42,7 @@ const SHORTCUT_GROUPS: { group: string; items: ShortcutItem[] }[] = [
       { keys: ["H"], label: "Pan Canvas", desc: "Click and drag to pan across infinite blackboard" },
       { keys: ["Space", "Drag"], label: "Quick Pan", desc: "Hold spacebar anytime to pan with pen or mouse" },
       { keys: ["Wheel"], label: "Pinch / Zoom", desc: "Smooth zoom toward pointer focal point" },
-      { keys: ["G"], label: "Cycle Grid", desc: "Toggle Dot Grid, Math Graph, or Pure Blackboard" },
+      { keys: ["G"], label: "Cycle Templates", desc: "Toggle Dots, Math Graph, Ruled Paper, Cornell, Isometric, Music, or Blank" },
     ],
   },
   {

@@ -23,8 +23,15 @@ import {
   ChevronDown,
   Layers,
   Plus,
+  Grid,
+  AlignJustify,
+  Columns,
+  Box,
+  Music,
+  Square,
+  Palette,
 } from "lucide-react";
-import type { GridStyle } from "../types/whiteboard";
+import type { GridStyle, BoardTheme } from "../types/whiteboard";
 
 interface HeaderBarProps {
   onNewNotebook?: () => void;
@@ -54,9 +61,11 @@ interface HeaderBarProps {
   onOpenAuth?: () => void;
   onOpenCloudLibrary?: () => void;
   onSignOut?: () => void;
+  boardTheme?: BoardTheme;
+  onThemeChange?: (theme: BoardTheme) => void;
 }
 
-type DropdownMenu = "file" | "export" | "profile" | null;
+type DropdownMenu = "file" | "export" | "profile" | "template" | null;
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   onNewNotebook,
@@ -64,6 +73,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onTitleChange,
   gridStyle,
   onGridChange,
+  boardTheme = "dark",
+  onThemeChange,
   onPdfUpload,
   onExport,
   onExportNotesPdf,
@@ -135,20 +146,50 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     setIsEditingTitle(false);
   };
 
-  const cycleGrid = () => {
-    if (gridStyle === "dots") onGridChange("grid");
-    else if (gridStyle === "grid") onGridChange("none");
-    else onGridChange("dots");
-  };
+const TEMPLATE_OPTIONS: {
+  value: GridStyle;
+  label: string;
+  desc: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { value: "dots", label: "Dot Grid", desc: "Fine subtle dots for freehand diagrams", icon: Grid3X3 },
+  { value: "grid", label: "Math Graph", desc: "Cartesian minor & major grid rules", icon: Grid },
+  { value: "ruled", label: "Ruled Notebook", desc: "Horizontal notebook lines with left margin", icon: AlignJustify },
+  { value: "cornell", label: "Cornell Notes", desc: "Recall column, lecture notes, & summary", icon: Columns },
+  { value: "isometric", label: "Isometric 3D", desc: "30°/90°/150° grid for 3D & physics", icon: Box },
+  { value: "music", label: "Music Staff", desc: "5-line staves with barlines", icon: Music },
+  { value: "none", label: "Blank Board", desc: "Pure unobstructed teaching canvas", icon: Square },
+];
+
+const THEME_OPTIONS: {
+  value: BoardTheme;
+  label: string;
+  desc: string;
+  dotColor: string;
+}[] = [
+  { value: "dark", label: "Dark Chalkboard", desc: "Classic obsidian with neon chalks", dotColor: "bg-zinc-800 border-zinc-600" },
+  { value: "light", label: "White Studio", desc: "Clean paper with rich inks", dotColor: "bg-white border-zinc-300" },
+  { value: "blueprint", label: "Blueprint Blue", desc: "Architectural navy with cyan rules", dotColor: "bg-sky-800 border-sky-400" },
+];
 
   const getGridLabel = () => {
     switch (gridStyle) {
       case "dots":
-        return "Dots";
+        return "Dot Grid";
       case "grid":
-        return "Math Grid";
+        return "Math Graph";
+      case "ruled":
+        return "Ruled Paper";
+      case "cornell":
+        return "Cornell";
+      case "isometric":
+        return "Isometric 3D";
+      case "music":
+        return "Music Staff";
       case "none":
         return "Blank";
+      default:
+        return "Template";
     }
   };
 
@@ -510,15 +551,114 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
         {/* ── Segmented Control: Canvas Display & View Modes ── */}
         <div className="flex items-center p-0.5 rounded-xl bg-white/[0.03] border border-white/5">
-          {/* Background Grid Toggle */}
-          <button
-            onClick={cycleGrid}
-            title="Cycle Background Grid (G): Dot Grid / Math Grid / Blank"
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
-          >
-            <Grid3X3 className="w-3.5 h-3.5 text-zinc-400" />
-            <span className="text-[11px] font-mono hidden md:inline">{getGridLabel()}</span>
-          </button>
+          {/* Template & Board Theme Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setOpenMenu(openMenu === "template" ? null : "template")}
+              title="Change Template Paper Style & Board Theme"
+              className={`
+                flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-colors
+                ${
+                  openMenu === "template"
+                    ? "text-white bg-white/15 shadow-sm"
+                    : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                }
+              `}
+            >
+              <Palette className="w-3.5 h-3.5 text-sky-400" />
+              <span className="text-[11px] font-mono hidden md:inline">{getGridLabel()}</span>
+              <ChevronDown className="w-3 h-3 text-zinc-500" />
+            </button>
+
+            {openMenu === "template" && (
+              <div
+                className="
+                  absolute left-0 top-full mt-2 w-72 p-2.5 rounded-2xl
+                  bg-zinc-950/95 backdrop-blur-2xl border border-white/10
+                  shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-3 text-xs
+                  animate-in fade-in zoom-in-95 duration-100
+                "
+              >
+                {/* 1. Paper Templates */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5 px-1">
+                    <span className="text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+                      Paper Templates
+                    </span>
+                    <span className="text-[9px] font-mono text-zinc-500">Hotkey: G</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {TEMPLATE_OPTIONS.map((item) => {
+                      const Icon = item.icon;
+                      const isSelected = gridStyle === item.value;
+                      return (
+                        <button
+                          key={item.value}
+                          onClick={() => {
+                            onGridChange(item.value);
+                            setOpenMenu(null);
+                          }}
+                          className={`
+                            flex items-center justify-between px-2.5 py-1.5 rounded-xl text-left transition-all
+                            ${
+                              isSelected
+                                ? "bg-sky-500/20 text-white border border-sky-500/30"
+                                : "text-zinc-300 hover:text-white hover:bg-white/[0.06] border border-transparent"
+                            }
+                          `}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className={`w-3.5 h-3.5 ${isSelected ? "text-sky-400" : "text-zinc-400"}`} />
+                            <div>
+                              <div className="font-semibold text-xs leading-none">{item.label}</div>
+                              <div className="text-[10px] text-zinc-500 leading-tight mt-0.5">{item.desc}</div>
+                            </div>
+                          </div>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Board Themes */}
+                {onThemeChange && (
+                  <div className="pt-2 border-t border-white/10">
+                    <div className="mb-1.5 px-1">
+                      <span className="text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+                        Board Themes
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {THEME_OPTIONS.map((item) => {
+                        const isSelected = (boardTheme || "dark") === item.value;
+                        return (
+                          <button
+                            key={item.value}
+                            onClick={() => {
+                              onThemeChange(item.value);
+                              setOpenMenu(null);
+                            }}
+                            className={`
+                              flex flex-col items-center gap-1.5 p-2 rounded-xl text-center transition-all
+                              ${
+                                isSelected
+                                  ? "bg-white/15 border border-sky-400/50 text-white shadow-sm"
+                                  : "bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 text-zinc-400 hover:text-zinc-200"
+                              }
+                            `}
+                          >
+                            <span className={`w-4 h-4 rounded-full border shadow-sm ${item.dotColor}`} />
+                            <span className="text-[10px] font-semibold leading-tight">{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Finite Sheet vs Infinite Toggle */}
           {onToggleFiniteMode && (

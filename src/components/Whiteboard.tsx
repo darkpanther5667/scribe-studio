@@ -23,8 +23,14 @@ import type {
   ToolMode,
   Slide,
   MathItem,
+  BoardTheme,
 } from "../types/whiteboard";
 import { STROKE_WIDTH_MAP } from "../types/whiteboard";
+import {
+  drawInfiniteTemplate,
+  drawBoundedSheetTemplate,
+  getThemeColors,
+} from "../utils/canvasTemplates";
 import {
   computeSelectionBoundingBox,
   isImageInPolygon,
@@ -262,6 +268,11 @@ export const Whiteboard: React.FC = () => {
   textFontStyleRef.current = fontStyle;
 
   const [gridStyle, setGridStyle] = useState<GridStyle>("dots");
+  const [boardTheme, setBoardTheme] = useState<BoardTheme>(() => {
+    return (localStorage.getItem("scribe_board_theme") as BoardTheme) || "dark";
+  });
+  const boardThemeRef = useRef<BoardTheme>(boardTheme);
+  boardThemeRef.current = boardTheme;
 
   // ── Camera (Infinite Canvas) ─────────────────────────────────────────────────
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
@@ -488,51 +499,6 @@ export const Whiteboard: React.FC = () => {
     return () => observer.disconnect();
   }, [handleResize]);
 
-  // ── Background Grid Pattern ──────────────────────────────────────────────────
-  const drawBackgroundGrid = (
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    height: number,
-    cam: Camera,
-    style: GridStyle
-  ) => {
-    if (style === "none") return;
-
-    const baseStep = 40;
-    let step = baseStep;
-    while (step * cam.zoom < 24) step *= 2;
-    while (step * cam.zoom > 100) step /= 2;
-
-    const screenStep = step * cam.zoom;
-    const startX = ((cam.x % screenStep) + screenStep) % screenStep;
-    const startY = ((cam.y % screenStep) + screenStep) % screenStep;
-
-    if (style === "dots") {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
-      const dotRadius = Math.max(1, 1.2 * Math.min(1.4, cam.zoom));
-      for (let x = startX; x < width; x += screenStep) {
-        for (let y = startY; y < height; y += screenStep) {
-          ctx.beginPath();
-          ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    } else if (style === "grid") {
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = startX; x < width; x += screenStep) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-      }
-      for (let y = startY; y < height; y += screenStep) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-      }
-      ctx.stroke();
-    }
-  };
-
   // ── Render Loop ─────────────────────────────────────────────────────────────
   const redraw = useCallback(() => {
     const ctx = getCtx();
@@ -542,12 +508,15 @@ export const Whiteboard: React.FC = () => {
     const cam = cameraRef.current;
     const width = canvas.offsetWidth;
     const height = canvas.offsetHeight;
+    const theme = boardThemeRef.current;
+    const colors = getThemeColors(theme);
 
-    // 1. Clear viewport
-    ctx.clearRect(0, 0, width, height);
+    // 1. Clear viewport & fill theme background
+    ctx.fillStyle = colors.canvasBg;
+    ctx.fillRect(0, 0, width, height);
 
-    // 2. Draw Educator Grid Pattern
-    drawBackgroundGrid(ctx, width, height, cam, gridStyle);
+    // 2. Draw Infinite Educator Template
+    drawInfiniteTemplate(ctx, width, height, cam, gridStyle, theme);
 
     // 3. Apply Camera World Transform
     ctx.save();
@@ -560,15 +529,15 @@ export const Whiteboard: React.FC = () => {
     const slideX = -slideW / 2;
     const slideY = -slideH / 2;
     const currentSlideForBg = slidesRef.current[currentSlideIndexRef.current];
-    const slideBg = currentSlideForBg?.backgroundColor;
+    const slideBg = currentSlideForBg?.backgroundColor || colors.sheetBg;
 
     ctx.save();
-    if (isFiniteModeRef.current && slideBg) {
+    if (isFiniteModeRef.current) {
       // ── Finite mode: refined paper sheet with elevation shadow ────────────
       const sheetRadius = 14 / cam.zoom;
 
       // Outer soft ambient elevation shadow
-      ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
       ctx.shadowBlur = 40 / cam.zoom;
       ctx.shadowOffsetY = 12 / cam.zoom;
       ctx.fillStyle = slideBg;
@@ -586,7 +555,7 @@ export const Whiteboard: React.FC = () => {
       ctx.shadowOffsetY = 0;
 
       // Subtle crisp sheet border
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.12)";
+      ctx.strokeStyle = colors.primaryLine;
       ctx.lineWidth = 1 / cam.zoom;
       if (typeof ctx.roundRect === "function") {
         ctx.beginPath();
@@ -596,39 +565,11 @@ export const Whiteboard: React.FC = () => {
         ctx.strokeRect(slideX, slideY, slideW, slideH);
       }
 
-      // ── Grid overlay inside the sheet based on active gridStyle ───────────
-      if (gridStyle !== "none") {
-        const gridSpacing = 40; // world units
-        if (gridStyle === "dots") {
-          ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
-          const dotRadius = 1.2 / cam.zoom;
-          for (let gx = slideX + gridSpacing; gx < slideX + slideW; gx += gridSpacing) {
-            for (let gy = slideY + gridSpacing; gy < slideY + slideH; gy += gridSpacing) {
-              ctx.beginPath();
-              ctx.arc(gx, gy, dotRadius, 0, Math.PI * 2);
-              ctx.fill();
-            }
-          }
-        } else if (gridStyle === "grid") {
-          ctx.strokeStyle = "rgba(0, 0, 0, 0.07)";
-          ctx.lineWidth = 0.8 / cam.zoom;
-          ctx.beginPath();
-          // vertical lines
-          for (let gx = slideX + gridSpacing; gx < slideX + slideW; gx += gridSpacing) {
-            ctx.moveTo(gx, slideY);
-            ctx.lineTo(gx, slideY + slideH);
-          }
-          // horizontal lines
-          for (let gy = slideY + gridSpacing; gy < slideY + slideH; gy += gridSpacing) {
-            ctx.moveTo(slideX, gy);
-            ctx.lineTo(slideX + slideW, gy);
-          }
-          ctx.stroke();
-        }
-      }
+      // ── Template overlay inside the sheet based on active gridStyle ───────────
+      drawBoundedSheetTemplate(ctx, slideX, slideY, slideW, slideH, cam, gridStyle, theme);
     } else {
       // ── Infinite canvas: subtle ghost outline only ─────────────────────────
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.strokeStyle = colors.primaryLine;
       ctx.lineWidth = 1.5 / cam.zoom;
       if (typeof ctx.roundRect === "function") {
         ctx.beginPath();
@@ -639,7 +580,7 @@ export const Whiteboard: React.FC = () => {
       }
       // Corner crosshairs
       const markLen = 16 / cam.zoom;
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+      ctx.strokeStyle = colors.majorLine;
       ctx.lineWidth = 1.2 / cam.zoom;
       const stageCorners = [
         [slideX, slideY, 1, 1],
@@ -972,9 +913,26 @@ export const Whiteboard: React.FC = () => {
     rafIdRef.current = requestAnimationFrame(redraw);
   }, [redraw]);
 
+  const handleThemeChange = useCallback((newTheme: BoardTheme) => {
+    setBoardTheme(newTheme);
+    boardThemeRef.current = newTheme;
+    localStorage.setItem("scribe_board_theme", newTheme);
+
+    // Smart default ink adaptation: prevent invisible white ink on white background or black ink on dark background
+    if (newTheme === "light" && (colorRef.current === "#F8FAFC" || colorRef.current === "#FFFFFF")) {
+      setColor("#1a1a2e");
+      colorRef.current = "#1a1a2e";
+    } else if ((newTheme === "dark" || newTheme === "blueprint") && colorRef.current === "#1a1a2e") {
+      setColor("#F8FAFC");
+      colorRef.current = "#F8FAFC";
+    }
+
+    scheduleRedraw();
+  }, [scheduleRedraw]);
+
   useEffect(() => {
     scheduleRedraw();
-  }, [strokes, shapes, texts, notes, images, camera, selectedImageId, selectedIds, gridStyle, scheduleRedraw]);
+  }, [strokes, shapes, texts, notes, images, camera, selectedImageId, selectedIds, gridStyle, boardTheme, scheduleRedraw]);
 
   useEffect(() => {
     return () => cancelAnimationFrame(rafIdRef.current);
@@ -1585,6 +1543,10 @@ export const Whiteboard: React.FC = () => {
           setSlides(cached.slides);
           slidesRef.current = cached.slides;
           setGridStyle(cached.gridStyle || "dots");
+          if (cached.boardTheme) {
+            setBoardTheme(cached.boardTheme);
+            boardThemeRef.current = cached.boardTheme;
+          }
           setIsFiniteMode(Boolean(cached.isFiniteMode));
           isFiniteModeRef.current = Boolean(cached.isFiniteMode);
 
@@ -1624,6 +1586,7 @@ export const Whiteboard: React.FC = () => {
         slides: currentDeck,
         currentSlideIndex: currentSlideIndexRef.current,
         gridStyle,
+        boardTheme: boardThemeRef.current,
         isFiniteMode: isFiniteModeRef.current,
       });
 
@@ -2154,9 +2117,14 @@ export const Whiteboard: React.FC = () => {
         case "h":
           setMode("pan");
           break;
-        case "g":
-          setGridStyle((g) => (g === "dots" ? "grid" : g === "grid" ? "none" : "dots"));
+        case "g": {
+          const sequence: GridStyle[] = ["dots", "grid", "ruled", "cornell", "isometric", "music", "none"];
+          setGridStyle((g) => {
+            const nextIdx = (sequence.indexOf(g) + 1) % sequence.length;
+            return sequence[nextIdx];
+          });
           break;
+        }
         case "0":
           handleFitToScreen();
           break;
@@ -3272,19 +3240,22 @@ export const Whiteboard: React.FC = () => {
     maths.length === 0 &&
     !textEditor;
 
+  const themeColors = getThemeColors(boardTheme);
+
   return (
     <div
       ref={containerRef}
-      className="relative w-screen h-screen overflow-hidden bg-black select-none touch-none"
+      className="relative w-screen h-screen overflow-hidden select-none touch-none transition-colors duration-200"
+      style={{ backgroundColor: themeColors.canvasBg }}
       onDragOver={onDragOver}
       onDrop={onDrop}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {/* ── Infinite Blackboard Canvas ── */}
+      {/* ── Infinite Blackboard / Whiteboard Canvas ── */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full touch-none"
-        style={{ backgroundColor: "#000000", cursor: getCursorStyle() }}
+        style={{ backgroundColor: themeColors.canvasBg, cursor: getCursorStyle() }}
         onContextMenu={(e) => e.preventDefault()}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -3303,6 +3274,8 @@ export const Whiteboard: React.FC = () => {
           setGridStyle(g);
           scheduleRedraw();
         }}
+        boardTheme={boardTheme}
+        onThemeChange={handleThemeChange}
         onPdfUpload={handlePdfUpload}
         onExport={handleExport}
         onExportNotesPdf={handleExportNotesPdf}
@@ -3635,6 +3608,7 @@ export const Whiteboard: React.FC = () => {
         onPenStyleChange={setPenStyle}
         fontStyle={fontStyle}
         onFontStyleChange={setFontStyle}
+        theme={boardTheme}
       />
 
       {/* ── Native PDF Document Import Modal ── */}

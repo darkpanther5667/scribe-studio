@@ -31,6 +31,7 @@ import type {
   FillStyle,
   ShapeType,
   PenStyle,
+  BoardTheme,
 } from "../types/whiteboard";
 import { STROKE_WIDTH_MAP } from "../types/whiteboard";
 
@@ -125,6 +126,7 @@ interface ToolbarProps {
   onPenStyleChange?: (s: PenStyle) => void;
   fontStyle?: "normal" | "handwriting";
   onFontStyleChange?: (fs: "normal" | "handwriting") => void;
+  theme?: BoardTheme;
 }
 
 /** Palette swatches for dark (infinite) canvas mode */
@@ -147,6 +149,17 @@ const LIGHT_PALETTE: { value: string; label: string; glow: string }[] = [
   { value: "#9333ea", label: "Purple", glow: "shadow-[0_0_12px_rgba(147,51,234,0.6)]" },
   { value: "#ea580c", label: "Burnt Orange", glow: "shadow-[0_0_12px_rgba(234,88,12,0.6)]" },
   { value: "#0f766e", label: "Teal", glow: "shadow-[0_0_12px_rgba(15,118,110,0.6)]" },
+];
+
+/** Palette swatches for blueprint engineering mode */
+const BLUEPRINT_PALETTE: { value: string; label: string; glow: string }[] = [
+  { value: "#FFFFFF", label: "Drafting White", glow: "shadow-[0_0_12px_rgba(255,255,255,0.6)]" },
+  { value: "#38BDF8", label: "Cyan Vector", glow: "shadow-[0_0_12px_rgba(56,189,248,0.6)]" },
+  { value: "#FDE047", label: "Cadmium Gold", glow: "shadow-[0_0_12px_rgba(253,224,71,0.6)]" },
+  { value: "#4ADE80", label: "Mint Rule", glow: "shadow-[0_0_12px_rgba(74,222,128,0.6)]" },
+  { value: "#FB7185", label: "Coral Marker", glow: "shadow-[0_0_12px_rgba(251,113,133,0.6)]" },
+  { value: "#FB923C", label: "Amber Spec", glow: "shadow-[0_0_12px_rgba(251,146,60,0.6)]" },
+  { value: "#C084FC", label: "Orchid Dimension", glow: "shadow-[0_0_12px_rgba(192,132,252,0.6)]" },
 ];
 
 /** Curated Chalk & Slate pigment swatches */
@@ -193,12 +206,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onPenStyleChange,
   fontStyle = "handwriting",
   onFontStyleChange,
+  theme = "dark",
 }) => {
   const [shapesOpen, setShapesOpen] = useState(false);
   const [penStyleOpen, setPenStyleOpen] = useState(false);
 
-  // Pick the right color palette for current mode
-  const ACTIVE_PALETTE = isFiniteMode ? LIGHT_PALETTE : DARK_PALETTE;
+  // Pick the right color palette for active theme and canvas mode
+  const ACTIVE_PALETTE =
+    theme === "light"
+      ? LIGHT_PALETTE
+      : theme === "blueprint"
+      ? BLUEPRINT_PALETTE
+      : isFiniteMode
+      ? LIGHT_PALETTE
+      : DARK_PALETTE;
 
   const zoomPercent = Math.round(camera.zoom * 100);
 
