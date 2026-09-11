@@ -498,6 +498,60 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </button>
         )}
 
+        <div className="w-px h-5 bg-white/10 shrink-0 mx-0.5" />
+
+        {/* Supabase Cloud Sync & Account Profile */}
+        {currentUser ? (
+          <div className="flex items-center gap-1.5">
+            {onOpenCloudLibrary && (
+              <button
+                onClick={onOpenCloudLibrary}
+                title="Open Cloud Lecture Library"
+                className="
+                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+                  text-sky-300 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30
+                  transition-all duration-150 active:scale-95 shadow-sm
+                "
+              >
+                <Cloud className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cloud Library</span>
+              </button>
+            )}
+            <div className="flex items-center gap-1.5 pl-1.5 pr-1.5 py-1 rounded-xl bg-white/[0.04] border border-white/10 text-xs">
+              <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">
+                {currentUser.email ? currentUser.email.charAt(0).toUpperCase() : <User className="w-3 h-3" />}
+              </div>
+              <span className="text-[11px] text-zinc-300 font-mono hidden md:inline max-w-[90px] truncate">
+                {currentUser.email?.split("@")[0]}
+              </span>
+              {onSignOut && (
+                <button
+                  onClick={onSignOut}
+                  title="Sign out of Supabase Cloud"
+                  className="p-1 rounded-lg text-zinc-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                >
+                  <LogOut className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          onOpenAuth && (
+            <button
+              onClick={onOpenAuth}
+              title="Sign in or create account to sync lectures to Supabase Cloud"
+              className="
+                flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+                text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30
+                transition-all duration-150 active:scale-95 shadow-sm
+              "
+            >
+              <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Cloud Sync</span>
+            </button>
+          )
+        )}
+
         {/* Clear Canvas with Safety Confirmation */}
         <button
           onClick={() => {
