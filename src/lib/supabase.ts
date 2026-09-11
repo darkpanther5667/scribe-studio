@@ -23,14 +23,15 @@ export function getSupabaseConfig(): { url: string; anonKey: string } {
   const localKey = (localStorage.getItem(STORAGE_KEY_ANON) || "").trim();
 
   return {
-    url: localUrl || envUrl,
-    anonKey: localKey || envKey,
+    url: envUrl || localUrl,
+    anonKey: envKey || localKey,
   };
 }
 
 export function saveSupabaseConfig(url: string, anonKey: string): void {
   if (url) localStorage.setItem(STORAGE_KEY_URL, url.trim());
   if (anonKey) localStorage.setItem(STORAGE_KEY_ANON, anonKey.trim());
+  supabaseInstance = null; // Re-create client with new credentials
 }
 
 export function isSupabaseConfigured(): boolean {
