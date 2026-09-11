@@ -409,6 +409,15 @@ export const Whiteboard: React.FC = () => {
   const laserTrailRef = useRef<LaserPoint[]>([]);
   const snapshotBeforeGestureRef = useRef<BoardSnapshot | null>(null);
 
+  // ── Multi-Touch Touchscreen Gestures (Two-finger pan & pinch zoom) ───────────
+  const touchPointersRef = useRef<Map<number, { clientX: number; clientY: number }>>(new Map());
+  const pinchGestureRef = useRef<{
+    initialDist: number;
+    initialZoom: number;
+    initialMidpoint: { x: number; y: number };
+    initialCam: Camera;
+  } | null>(null);
+
   // ── Smart Ink Draw-and-Hold Shape Recognition State & Refs ──────────────────
   const [smartSnapEnabled, setSmartSnapEnabled] = useState(true);
   const smartSnapEnabledRef = useRef(smartSnapEnabled);
@@ -986,7 +995,9 @@ export const Whiteboard: React.FC = () => {
       const cursorX = e.clientX - rect.left;
       const cursorY = e.clientY - rect.top;
 
-      if (e.ctrlKey) {
+      // 1. PINCH-TO-ZOOM (Trackpads dispatch WheelEvent with ctrlKey: true on pinch gesture)
+      // Also handles Ctrl / Cmd / Alt + mouse wheel zooming towards pointer cursor
+      if (e.ctrlKey || e.metaKey || e.altKey) {
         const zoomDelta = -e.deltaY * 0.01;
         const zoomFactor = Math.exp(zoomDelta);
 
@@ -1006,30 +1017,30 @@ export const Whiteboard: React.FC = () => {
         return;
       }
 
-      if (Math.abs(e.deltaX) > 0 || e.shiftKey) {
-        const dx = e.shiftKey ? e.deltaY : e.deltaX;
-        const dy = e.shiftKey ? 0 : e.deltaY;
-        setCamera((prev) => {
-          const next = { ...prev, x: prev.x - dx, y: prev.y - dy };
-          cameraRef.current = next;
-          return next;
-        });
-        scheduleRedraw();
-        return;
+      // 2. TWO-FINGER TRACKPAD SWIPE / MOUSE WHEEL PANNING
+      // Swiping two fingers on trackpad pans the blackboard smoothly in 2D (like Figma/Miro)
+      let deltaX = e.deltaX;
+      let deltaY = e.deltaY;
+      if (e.deltaMode === 1) {
+        // Line mode (Windows mouse wheel)
+        deltaX *= 24;
+        deltaY *= 24;
+      } else if (e.deltaMode === 2) {
+        deltaX *= 100;
+        deltaY *= 100;
       }
 
-      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
-      setCamera((prev) => {
-        const nextZoom = Math.min(Math.max(0.1, prev.zoom * zoomFactor), 15);
-        const scaleRatio = nextZoom / prev.zoom;
+      const dx = e.shiftKey ? deltaY : deltaX;
+      const dy = e.shiftKey ? 0 : deltaY;
 
-        const nextCamera = {
-          zoom: nextZoom,
-          x: cursorX - (cursorX - prev.x) * scaleRatio,
-          y: cursorY - (cursorY - prev.y) * scaleRatio,
+      setCamera((prev) => {
+        const next = {
+          ...prev,
+          x: prev.x - dx,
+          y: prev.y - dy,
         };
-        cameraRef.current = nextCamera;
-        return nextCamera;
+        cameraRef.current = next;
+        return next;
       });
 
       scheduleRedraw();
@@ -2358,6 +2369,33 @@ export const Whiteboard: React.FC = () => {
         setIsLiveStylus(false);
       }
 
+      if (e.pointerType === "touch") {
+        touchPointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+        if (touchPointersRef.current.size >= 2) {
+          activeStrokeRef.current = null;
+          activeShapeRef.current = null;
+          isDrawingRef.current = false;
+          isDrawingShapeRef.current = false;
+          isErasingRef.current = false;
+          isLassoingRef.current = false;
+          isDraggingSelectionRef.current = false;
+
+          const pts = Array.from(touchPointersRef.current.values());
+          const dist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+          const midX = (pts[0].clientX + pts[1].clientX) / 2;
+          const midY = (pts[0].clientY + pts[1].clientY) / 2;
+
+          pinchGestureRef.current = {
+            initialDist: Math.max(dist, 10),
+            initialZoom: cameraRef.current.zoom,
+            initialMidpoint: { x: midX, y: midY },
+            initialCam: { ...cameraRef.current },
+          };
+          scheduleRedraw();
+          return;
+        }
+      }
+
       canvas.setPointerCapture(e.pointerId);
 
       // Detect Huion side barrel button or eraser tail
@@ -2601,6 +2639,44 @@ export const Whiteboard: React.FC = () => {
 
       const canvas = canvasRef.current;
       if (!canvas) return;
+
+      // Multi-Touch Pinch & Pan on Touchscreen Displays
+      if (e.pointerType === "touch") {
+        touchPointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+        if (touchPointersRef.current.size >= 2 && pinchGestureRef.current) {
+          if (isFiniteModeRef.current) return;
+
+          const pts = Array.from(touchPointersRef.current.values());
+          const curDist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+          const curMidX = (pts[0].clientX + pts[1].clientX) / 2;
+          const curMidY = (pts[0].clientY + pts[1].clientY) / 2;
+
+          const { initialDist, initialZoom, initialMidpoint, initialCam } = pinchGestureRef.current;
+          const scale = curDist / initialDist;
+          const nextZoom = Math.min(Math.max(0.1, initialZoom * scale), 15);
+          const scaleRatio = nextZoom / initialZoom;
+
+          const rect = canvas.getBoundingClientRect();
+          const focalX = initialMidpoint.x - rect.left;
+          const focalY = initialMidpoint.y - rect.top;
+
+          const panDx = curMidX - initialMidpoint.x;
+          const panDy = curMidY - initialMidpoint.y;
+
+          const nextCam = {
+            zoom: nextZoom,
+            x: focalX - (focalX - initialCam.x) * scaleRatio + panDx,
+            y: focalY - (focalY - initialCam.y) * scaleRatio + panDy,
+          };
+
+          cameraRef.current = nextCam;
+          setCamera(nextCam);
+          scheduleRedraw();
+          return;
+        }
+      }
+
       const rect = canvas.getBoundingClientRect();
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
@@ -2915,8 +2991,17 @@ export const Whiteboard: React.FC = () => {
     [screenToWorld, getEraserRadius, scheduleRedraw]
   );
 
-  const onPointerUp = useCallback(() => {
+  const onPointerUp = useCallback((e?: React.PointerEvent<HTMLCanvasElement>) => {
     setLivePressure(0);
+    if (e?.pointerId) {
+      touchPointersRef.current.delete(e.pointerId);
+      if (touchPointersRef.current.size < 2) {
+        pinchGestureRef.current = null;
+      }
+    } else {
+      touchPointersRef.current.clear();
+      pinchGestureRef.current = null;
+    }
     if (isPanningRef.current) isPanningRef.current = false;
     if (isDraggingImageRef.current) {
       isDraggingImageRef.current = false;
@@ -3062,7 +3147,7 @@ export const Whiteboard: React.FC = () => {
     }
   }, [scheduleRedraw]);
 
-  const onPointerCancel = useCallback(() => {
+  const onPointerCancel = useCallback((e?: React.PointerEvent<HTMLCanvasElement>) => {
     if (holdTimeoutRef.current) {
       clearTimeout(holdTimeoutRef.current);
       holdTimeoutRef.current = null;
@@ -3070,7 +3155,9 @@ export const Whiteboard: React.FC = () => {
     isSnappedShapeRef.current = false;
     snappedShapeRef.current = null;
     isPenActiveRef.current = false;
-    onPointerUp();
+    touchPointersRef.current.clear();
+    pinchGestureRef.current = null;
+    onPointerUp(e);
   }, [onPointerUp]);
 
   // ── Zoom Handlers ───────────────────────────────────────────────────────────
