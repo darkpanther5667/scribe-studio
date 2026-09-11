@@ -308,6 +308,30 @@ export const Whiteboard: React.FC = () => {
   const [activeCloudDrawingId, setActiveCloudDrawingId] = useState<string | null>(null);
   const [isSavingToCloud, setIsSavingToCloud] = useState(false);
 
+  useEffect(() => {
+    getCurrentUser().then((user) => {
+      if (user) setCurrentUser(user);
+    });
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const {
+      data: { subscription },
+    } = client.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setCurrentUser(session.user);
+        setIsAuthModalOpen(false);
+      } else if (event === "SIGNED_OUT") {
+        setCurrentUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const selectedImageIdRef = useRef<string | null>(selectedImageId);
   selectedImageIdRef.current = selectedImageId;

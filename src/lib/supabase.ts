@@ -51,6 +51,7 @@ export function getSupabaseClient(): SupabaseClient | null {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
+        detectSessionInUrl: true,
       },
     });
   }
@@ -58,6 +59,21 @@ export function getSupabaseClient(): SupabaseClient | null {
 }
 
 // ── Auth APIs ─────────────────────────────────────────────────────────────────
+
+export type OAuthProvider = "google" | "github";
+
+export async function signInWithOAuth(provider: OAuthProvider) {
+  const client = getSupabaseClient();
+  if (!client) throw new Error("Supabase is not configured. Please enter your project credentials.");
+  const { data, error } = await client.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: window.location.origin,
+    },
+  });
+  if (error) throw error;
+  return data;
+}
 
 export async function signUpWithEmail(email: string, password: string) {
   const client = getSupabaseClient();
