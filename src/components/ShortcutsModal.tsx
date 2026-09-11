@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Command, Keyboard } from "lucide-react";
+import { X, Keyboard, Sparkles } from "lucide-react";
 
 interface ShortcutsModalProps {
   isOpen: boolean;
@@ -9,59 +9,60 @@ interface ShortcutsModalProps {
 interface ShortcutItem {
   keys: string[];
   label: string;
-  desc: string;
+  badge?: string;
 }
 
-const SHORTCUT_GROUPS: { group: string; items: ShortcutItem[] }[] = [
+interface ShortcutCategory {
+  title: string;
+  items: ShortcutItem[];
+}
+
+const SHORTCUT_CATEGORIES: ShortcutCategory[] = [
   {
-    group: "Inking & Tools",
+    title: "Inking & Pens",
     items: [
-      { keys: ["P"], label: "Pen Tool", desc: "Zero-latency vector chalk with pressure dynamics" },
-      { keys: ["B"], label: "Highlighter", desc: "Semi-transparent fluorescent marker" },
-      { keys: ["E"], label: "Precision Eraser", desc: "Swept-capsule eraser that slices intersecting strokes" },
-      { keys: ["S"], label: "Lasso Select", desc: "Circle elements to move, duplicate, or delete" },
-      { keys: ["Alt", "S"], label: "Smart Snap", desc: "Draw and hold 400ms to snap into geometric shapes" },
-      { keys: ["T"], label: "Text", desc: "Click canvas to place typed notes" },
-      { keys: ["N"], label: "Sticky Note", desc: "Place a pinned lecture sticky note card" },
-      { keys: ["K"], label: "Laser Pointer", desc: "Fading comet trail for pointing during lectures" },
+      { keys: ["P"], label: "Switch to Pen tool" },
+      { keys: ["H"], label: "Switch to Under-ink Highlighter" },
+      { keys: ["E"], label: "Switch to Precision Eraser" },
+      { keys: ["1", "2", "3"], label: "Activate Favorite Pen slot 1, 2, or 3", badge: "NEW" },
+      { keys: ["[", "]"], label: "Decrease / Increase Nib Thickness", badge: "NEW" },
+      { keys: ["Double-Tap"], label: "Stylus / Touch toggle between Pen & Eraser", badge: "NEW" },
+      { keys: ["Scribble"], label: "Zigzag back and forth to auto-erase targeted elements", badge: "GESTURE" },
     ],
   },
   {
-    group: "Geometric Shapes",
+    title: "Tools & Geometric Shapes",
     items: [
-      { keys: ["L"], label: "Straight Line", desc: "Snap-aligned straight vector rule" },
-      { keys: ["A"], label: "Directional Arrow", desc: "Vector arrow with aligned arrowhead" },
-      { keys: ["R"], label: "Rectangle / Box", desc: "Rectangles, squares, and boundary boxes" },
-      { keys: ["C"], label: "Circle / Ellipse", desc: "Perfect circles and diagrams" },
-      { keys: ["Y"], label: "Triangle", desc: "Geometric triangles for trigonometry & proofs" },
+      { keys: ["S"], label: "Lasso selection tool" },
+      { keys: ["T"], label: "Canvas-direct typed text input" },
+      { keys: ["N"], label: "Sticky note / callout card" },
+      { keys: ["M"], label: "KaTeX math & LaTeX formula stamp" },
+      { keys: ["K"], label: "Laser pointer with fading comet tail" },
+      { keys: ["L"], label: "Straight line" },
+      { keys: ["A"], label: "Vector arrow" },
+      { keys: ["R"], label: "Rectangle / Box" },
+      { keys: ["C"], label: "Circle / Ellipse" },
+      { keys: ["X"], label: "X-Y Coordinate plane axes" },
     ],
   },
   {
-    group: "Navigation & Canvas",
+    title: "Educator Superpowers",
     items: [
-      { keys: ["H"], label: "Pan Canvas", desc: "Click and drag to pan across infinite blackboard" },
-      { keys: ["Space", "Drag"], label: "Quick Pan", desc: "Hold spacebar anytime to pan with pen or mouse" },
-      { keys: ["Wheel"], label: "Pinch / Zoom", desc: "Smooth zoom toward pointer focal point" },
-      { keys: ["G"], label: "Cycle Templates", desc: "Toggle Dots, Math Graph, Ruled Paper, Cornell, Isometric, Music, or Blank" },
+      { keys: ["Shift", "K"], label: "Toggle Focus Spotlight Beam", badge: "SUPERPOWER" },
+      { keys: ["Shift", "R"], label: "Toggle STEM Virtual Acrylic Ruler", badge: "SUPERPOWER" },
+      { keys: ["Shift", "F"], label: "Open Interactive Function Plotter Studio", badge: "SUPERPOWER" },
+      { keys: ["Shift", "Curtain"], label: "Presentation Derivation Reveal Curtain" },
     ],
   },
   {
-    group: "History & Selection",
+    title: "Canvas, Navigation & Session",
     items: [
-      { keys: ["Ctrl", "Z"], label: "Undo", desc: "Revert last inking stroke, shape, or action" },
-      { keys: ["Ctrl", "Y"], label: "Redo", desc: "Redo reverted whiteboard action" },
-      { keys: ["Ctrl", "D"], label: "Duplicate", desc: "Duplicate active lasso selection (+32px offset)" },
-      { keys: ["Del"], label: "Delete", desc: "Delete lasso selection or selected PDF page" },
-      { keys: ["Esc"], label: "Deselect", desc: "Clear active selection or cancel modal" },
-    ],
-  },
-  {
-    group: "Notebooks & Slides",
-    items: [
-      { keys: ["Ctrl", "N"], label: "New Notebook", desc: "Start a fresh blank lecture deck" },
-      { keys: ["Ctrl", "Enter"], label: "Add Slide", desc: "Insert a blank slide after current slide" },
-      { keys: ["PageUp"], label: "Prev Slide", desc: "Navigate to previous slide" },
-      { keys: ["PageDown"], label: "Next Slide", desc: "Navigate to next slide" },
+      { keys: ["F"], label: "Toggle Zen Full-Screen distraction-free teaching mode", badge: "NEW" },
+      { keys: ["Space", "+ Drag"], label: "Pan whiteboard blackboard" },
+      { keys: ["Ctrl", "Z"], label: "Undo last action" },
+      { keys: ["Ctrl", "Y"], label: "Redo action" },
+      { keys: ["Ctrl", "N"], label: "Create clean new lecture notebook" },
+      { keys: ["?"], label: "Open this keyboard shortcuts cheatsheet" },
     ],
   },
 ];
@@ -71,67 +72,69 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-150 select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-150 select-none"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl bg-zinc-950/95 border border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.95)] overflow-hidden"
+        className="w-full max-w-2xl rounded-3xl bg-zinc-950/95 border border-white/15 p-6 shadow-2xl flex flex-col gap-5 max-h-[85vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/[0.02]">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-400">
               <Keyboard className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white tracking-wide">
-                Keyboard Shortcuts & Gestures
+              <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
+                Keyboard Shortcuts & Teaching Gestures
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               </h2>
               <p className="text-xs text-zinc-400">
-                Master rapid whiteboard navigation and inking
+                Speed up your whiteboard delivery with lightning-fast hotkeys
               </p>
             </div>
           </div>
-
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Shortcuts List */}
-        <div className="p-6 overflow-y-auto space-y-6 divide-y divide-white/5">
-          {SHORTCUT_GROUPS.map((group) => (
-            <div key={group.group} className="pt-4 first:pt-0">
-              <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-cyan-400/90 mb-3">
-                {group.group}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {group.items.map((item) => (
+        {/* Content Body */}
+        <div className="overflow-y-auto space-y-5 pr-1 text-xs">
+          {SHORTCUT_CATEGORIES.map((cat) => (
+            <div key={cat.title} className="flex flex-col gap-2">
+              <div className="text-[11px] font-mono uppercase tracking-wider font-semibold text-sky-400/90">
+                {cat.title}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {cat.items.map((item, idx) => (
                   <div
-                    key={item.label}
-                    className="flex items-center justify-between p-2 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors"
+                    key={idx}
+                    className="flex items-center justify-between p-2 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-colors"
                   >
-                    <div className="min-w-0 pr-2">
-                      <div className="text-xs font-medium text-zinc-200">
-                        {item.label}
-                      </div>
-                      <div className="text-[11px] text-zinc-400 truncate">
-                        {item.desc}
-                      </div>
-                    </div>
+                    <span className="text-zinc-300 font-medium truncate pr-2">
+                      {item.label}
+                    </span>
                     <div className="flex items-center gap-1 shrink-0">
-                      {item.keys.map((k) => (
-                        <kbd
-                          key={k}
-                          className="px-2 py-0.5 rounded-md bg-zinc-900 border border-white/15 text-[11px] font-mono font-semibold text-zinc-200 shadow-sm"
-                        >
-                          {k}
-                        </kbd>
-                      ))}
+                      {item.badge && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                          {item.badge}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-0.5">
+                        {item.keys.map((k, kidx) => (
+                          <kbd
+                            key={kidx}
+                            className="px-1.5 py-0.5 rounded-md bg-white/10 text-white font-mono text-[10px] font-semibold border border-white/10 shadow-sm"
+                          >
+                            {k}
+                          </kbd>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -140,15 +143,15 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
           ))}
         </div>
 
-        {/* Modal Footer */}
-        <div className="flex items-center justify-between px-6 py-3 border-t border-white/10 bg-white/[0.02] text-xs text-zinc-400">
-          <div className="flex items-center gap-2">
-            <Command className="w-3.5 h-3.5 text-zinc-500" />
-            <span>Scribe Studio Pro</span>
-          </div>
-          <div>
-            Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] font-mono">Esc</kbd> to close
-          </div>
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-3 border-t border-white/10 text-xs text-zinc-500">
+          <span>Press <kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300 font-mono">Esc</kbd> anytime to close</span>
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 rounded-xl bg-white text-zinc-950 font-bold hover:bg-zinc-200 transition-colors"
+          >
+            Got it
+          </button>
         </div>
       </div>
     </div>

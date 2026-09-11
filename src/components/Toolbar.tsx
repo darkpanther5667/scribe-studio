@@ -32,6 +32,7 @@ import type {
   ShapeType,
   PenStyle,
   BoardTheme,
+  FavoritePen,
 } from "../types/whiteboard";
 import { STROKE_WIDTH_MAP } from "../types/whiteboard";
 
@@ -127,6 +128,10 @@ interface ToolbarProps {
   fontStyle?: "normal" | "handwriting";
   onFontStyleChange?: (fs: "normal" | "handwriting") => void;
   theme?: BoardTheme;
+  favoritePens?: FavoritePen[];
+  activeFavoriteIndex?: number | null;
+  onSelectFavoritePen?: (index: number) => void;
+  onOpenColorPicker?: () => void;
 }
 
 /** Palette swatches for dark (infinite) canvas mode */
@@ -162,13 +167,13 @@ const BLUEPRINT_PALETTE: { value: string; label: string; glow: string }[] = [
   { value: "#C084FC", label: "Orchid Dimension", glow: "shadow-[0_0_12px_rgba(192,132,252,0.6)]" },
 ];
 
-/** Curated Chalk & Slate pigment swatches */
-
-
+/** 5 Precision Educator Nib Widths */
 const WIDTHS: { value: StrokeWidth; label: string; size: number }[] = [
+  { value: "ultrathin", label: "Ultra-Fine (1.5px)", size: STROKE_WIDTH_MAP.ultrathin },
   { value: "thin", label: "Fine Tip (3px)", size: STROKE_WIDTH_MAP.thin },
   { value: "medium", label: "Medium Tip (6px)", size: STROKE_WIDTH_MAP.medium },
-  { value: "thick", label: "Marker Tip (12px)", size: STROKE_WIDTH_MAP.thick },
+  { value: "thick", label: "Broad Tip (10px)", size: STROKE_WIDTH_MAP.thick },
+  { value: "broad", label: "Marker Tip (16px)", size: STROKE_WIDTH_MAP.broad },
 ];
 
 const SHAPES_LIST: { mode: ShapeType; label: string; icon: React.ReactNode; shortcut: string }[] = [
@@ -207,6 +212,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   fontStyle = "handwriting",
   onFontStyleChange,
   theme = "dark",
+  favoritePens = [],
+  activeFavoriteIndex = null,
+  onSelectFavoritePen,
+  onOpenColorPicker,
 }) => {
   const [shapesOpen, setShapesOpen] = useState(false);
   const [penStyleOpen, setPenStyleOpen] = useState(false);
@@ -491,6 +500,36 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           >
             <Eraser className="w-3.5 h-3.5" />
           </button>
+
+          {/* Favorite Pens Quick Slots (1, 2, 3) */}
+          {favoritePens.length > 0 && onSelectFavoritePen && (
+            <>
+              <div className={`w-px h-3.5 ${isFiniteMode ? "bg-black/10" : "bg-white/10"} mx-0.5`} />
+              {favoritePens.slice(0, 3).map((pen, idx) => {
+                const isFavActive = activeFavoriteIndex === idx;
+                return (
+                  <button
+                    key={pen.id || idx}
+                    onClick={() => onSelectFavoritePen(idx)}
+                    title={`Favorite ${idx + 1}: ${pen.name} (Press ${idx + 1})`}
+                    className={`
+                      w-5 h-5 rounded-lg transition-all relative flex items-center justify-center shrink-0
+                      ${
+                        isFavActive
+                          ? "ring-2 ring-white scale-110 shadow-md"
+                          : "opacity-75 hover:opacity-100 hover:scale-105"
+                      }
+                    `}
+                    style={{ backgroundColor: pen.color }}
+                  >
+                    <span className="text-[8px] font-mono font-bold text-zinc-950 bg-white/80 px-0.5 rounded leading-none shadow-sm">
+                      {idx + 1}
+                    </span>
+                  </button>
+                );
+              })}
+            </>
+          )}
         </div>
 
         {/* ── Cluster 3: Geometric Shapes & Objects ── */}
@@ -635,22 +674,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 />
               ))}
 
-              {/* Custom Color Picker Input */}
-              <div className="relative flex items-center">
-                <input
-                  type="color"
-                  value={color}
-                  onChange={(e) => onColorChange(e.target.value)}
-                  className="w-5 h-5 opacity-0 absolute inset-0 cursor-pointer"
-                  title="Custom Pigment Color"
-                />
-                <div
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${isFiniteMode ? "border-black/20 text-zinc-500 hover:text-zinc-900" : "border-white/20 text-zinc-400 hover:text-white"}`}
-                  title="Custom Color Picker"
-                >
-                  <Palette className="w-2.5 h-2.5" />
-                </div>
-              </div>
+              {/* Custom Educator Color Studio Trigger */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenColorPicker) onOpenColorPicker();
+                }}
+                className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95 ${
+                  isFiniteMode
+                    ? "border-black/20 text-zinc-600 hover:text-zinc-950 bg-black/[0.04]"
+                    : "border-white/20 text-zinc-300 hover:text-white bg-white/[0.05]"
+                }`}
+                title="Open Educator Color Studio (Palettes, Eyedropper & Recents)"
+              >
+                <Palette className="w-2.5 h-2.5 text-sky-400" />
+              </button>
             </div>
 
             {/* Tip Thickness */}

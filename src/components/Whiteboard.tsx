@@ -24,8 +24,12 @@ import type {
   Slide,
   MathItem,
   BoardTheme,
+  FavoritePen,
 } from "../types/whiteboard";
-import { STROKE_WIDTH_MAP } from "../types/whiteboard";
+import { STROKE_WIDTH_MAP, STROKE_WIDTH_ORDER } from "../types/whiteboard";
+import { loadFavoritePens, saveFavoritePens } from "../utils/colorPalettes";
+import { ColorPickerPopover } from "./ColorPickerPopover";
+import { FloatingMiniDock } from "./FloatingMiniDock";
 import {
   drawInfiniteTemplate,
   drawBoundedSheetTemplate,
@@ -480,6 +484,75 @@ export const Whiteboard: React.FC = () => {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [livePressure, setLivePressure] = useState(0);
   const [isLiveStylus, setIsLiveStylus] = useState(false);
+
+  // ── Favorite Pens, Color Studio, and Zen Mode ───────────────────────────────
+  const [favoritePens, setFavoritePens] = useState<FavoritePen[]>(() => loadFavoritePens());
+  const [activeFavoriteIndex, setActiveFavoriteIndex] = useState<number | null>(0);
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(false);
+  const [hoverCursorPos, setHoverCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const [isPointerDownState, setIsPointerDownState] = useState(false);
+  const lastTapRef = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 });
+
+  const handleSelectFavoritePen = useCallback((index: number) => {
+    const pen = favoritePens[index];
+    if (!pen) return;
+    setActiveFavoriteIndex(index);
+    if (pen.isHighlighter) {
+      setMode("highlighter");
+      modeRef.current = "highlighter";
+    } else {
+      setMode("draw");
+      modeRef.current = "draw";
+      setPenStyle(pen.style);
+      penStyleRef.current = pen.style;
+    }
+    setStrokeWidth(pen.width);
+    strokeWidthRef.current = pen.width;
+    setColor(pen.color);
+    colorRef.current = pen.color;
+  }, [favoritePens]);
+
+  const cycleStrokeWidth = useCallback((direction: "up" | "down") => {
+    const order = STROKE_WIDTH_ORDER;
+    const currentIdx = order.indexOf(strokeWidthRef.current);
+    if (currentIdx === -1) return;
+    let nextIdx = direction === "up" ? currentIdx + 1 : currentIdx - 1;
+    if (nextIdx < 0) nextIdx = 0;
+    if (nextIdx >= order.length) nextIdx = order.length - 1;
+    const nextWidth = order[nextIdx];
+    setStrokeWidth(nextWidth);
+    strokeWidthRef.current = nextWidth;
+  }, []);
+
+  useEffect(() => {
+    saveFavoritePens(favoritePens);
+  }, [favoritePens]);
+
+  // Keep active favorite pen slot in sync with current inking settings
+  useEffect(() => {
+    if (activeFavoriteIndex === null) return;
+    setFavoritePens((prev) => {
+      const current = prev[activeFavoriteIndex];
+      if (!current) return prev;
+      if (
+        current.color === color &&
+        current.width === strokeWidth &&
+        (mode === "highlighter" ? current.isHighlighter : current.style === penStyle)
+      ) {
+        return prev;
+      }
+      const updated = [...prev];
+      updated[activeFavoriteIndex] = {
+        ...current,
+        color,
+        width: strokeWidth,
+        style: mode === "highlighter" ? "marker" : penStyle,
+        isHighlighter: mode === "highlighter",
+      };
+      return updated;
+    });
+  }, [color, strokeWidth, penStyle, mode, activeFavoriteIndex]);
 
   const handleTitleChange = (newTitle: string) => {
     setLectureTitle(newTitle);
@@ -1016,7 +1089,9 @@ export const Whiteboard: React.FC = () => {
       // 1. PINCH-TO-ZOOM (Trackpads dispatch WheelEvent with ctrlKey: true on pinch gesture)
       // Also handles Ctrl / Cmd / Alt + mouse wheel zooming towards pointer cursor
       if (e.ctrlKey || e.metaKey || e.altKey) {
-        const zoomDelta = -e.deltaY * 0.01;
+        // Damped zoom clamping to eliminate wild jumps on Windows precision touchpads
+        const rawDelta = -e.deltaY * 0.0035;
+        const zoomDelta = Math.max(-0.25, Math.min(0.25, rawDelta));
         const zoomFactor = Math.exp(zoomDelta);
 
         setCamera((prev) => {
@@ -2327,8 +2402,37 @@ export const Whiteboard: React.FC = () => {
         case "0":
           handleFitToScreen();
           break;
+        case "1":
+          e.preventDefault();
+          handleSelectFavoritePen(0);
+          break;
+        case "2":
+          e.preventDefault();
+          handleSelectFavoritePen(1);
+          break;
+        case "3":
+          e.preventDefault();
+          handleSelectFavoritePen(2);
+          break;
+        case "[":
+          e.preventDefault();
+          cycleStrokeWidth("down");
+          break;
+        case "]":
+          e.preventDefault();
+          cycleStrokeWidth("up");
+          break;
+        case "?":
+          e.preventDefault();
+          setShortcutsOpen((o) => !o);
+          break;
         case "f":
-          toggleFullscreen();
+          e.preventDefault();
+          if (e.shiftKey) {
+            setIsPlotterOpen(true);
+          } else {
+            setIsZenMode((z) => !z);
+          }
           break;
         case "=":
         case "+":
@@ -2359,7 +2463,7 @@ export const Whiteboard: React.FC = () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [handleUndo, handleRedo, handleNewNotebook, handleAddBlankSlide, handleSelectSlide, handleFitToScreen, toggleFullscreen, handleGridStyleChange, scheduleRedraw]);
+  }, [handleUndo, handleRedo, handleNewNotebook, handleAddBlankSlide, handleSelectSlide, handleFitToScreen, toggleFullscreen, handleGridStyleChange, scheduleRedraw, handleSelectFavoritePen, cycleStrokeWidth]);
 
   // ── Hit-testing images and resize handles ────────────────────────────────────
   const hitTestImageHandle = (
@@ -2483,6 +2587,23 @@ export const Whiteboard: React.FC = () => {
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+
+      setIsPointerDownState(true);
+
+      // Stylus / Touch double-tap detection to switch between pen & eraser
+      const now = Date.now();
+      const dt = now - lastTapRef.current.time;
+      const ddist = Math.hypot(e.clientX - lastTapRef.current.x, e.clientY - lastTapRef.current.y);
+      if (dt < 320 && ddist < 25) {
+        if (modeRef.current === "erase") {
+          setMode("draw");
+          modeRef.current = "draw";
+        } else if (modeRef.current === "draw" || modeRef.current === "highlighter") {
+          setMode("erase");
+          modeRef.current = "erase";
+        }
+      }
+      lastTapRef.current = { time: now, x: e.clientX, y: e.clientY };
 
       const rect = canvas.getBoundingClientRect();
       const screenX = e.clientX - rect.left;
@@ -2897,6 +3018,7 @@ export const Whiteboard: React.FC = () => {
       const worldPoint = screenToWorld(screenX, screenY);
 
       spotlightPosRef.current = { x: e.clientX, y: e.clientY };
+      setHoverCursorPos({ x: e.clientX, y: e.clientY });
       if (isSpotlightActiveRef.current) {
         scheduleRedraw();
       }
@@ -3221,6 +3343,7 @@ export const Whiteboard: React.FC = () => {
 
   const onPointerUp = useCallback((e?: React.PointerEvent<HTMLCanvasElement>) => {
     setLivePressure(0);
+    setIsPointerDownState(false);
     if (e?.pointerId) {
       touchPointersRef.current.delete(e.pointerId);
       if (touchPointersRef.current.size < 2) {
@@ -3564,14 +3687,75 @@ export const Whiteboard: React.FC = () => {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
+        onPointerLeave={() => {
+          onPointerUp();
+          setHoverCursorPos(null);
+        }}
         onPointerCancel={onPointerCancel}
       />
 
+      {/* ── Dynamic Brush / Eraser / Highlighter Nib Hover Indicator ── */}
+      {hoverCursorPos && !isPointerDownState && (mode === "draw" || mode === "highlighter" || mode === "erase") && (
+        <div
+          className="fixed pointer-events-none z-30 -translate-x-1/2 -translate-y-1/2 transition-transform duration-75"
+          style={{
+            left: `${hoverCursorPos.x}px`,
+            top: `${hoverCursorPos.y}px`,
+          }}
+        >
+          {mode === "draw" && (
+            <div
+              className="rounded-full border shadow-sm"
+              style={{
+                width: `${Math.max(4, STROKE_WIDTH_MAP[strokeWidth] * camera.zoom)}px`,
+                height: `${Math.max(4, STROKE_WIDTH_MAP[strokeWidth] * camera.zoom)}px`,
+                borderColor: color,
+                backgroundColor: `${color}40`,
+                boxShadow: `0 0 6px ${color}80`,
+              }}
+            />
+          )}
+          {mode === "highlighter" && (
+            <div
+              className="rounded-md border border-white/60 shadow-md"
+              style={{
+                width: `${Math.max(16, STROKE_WIDTH_MAP[strokeWidth] * 2.8 * camera.zoom)}px`,
+                height: `${Math.max(8, STROKE_WIDTH_MAP[strokeWidth] * camera.zoom)}px`,
+                backgroundColor: `${color}60`,
+                boxShadow: `0 0 10px ${color}90`,
+              }}
+            />
+          )}
+          {mode === "erase" && (
+            <div
+              className="rounded-full border-2 border-dashed border-rose-400/80 bg-rose-500/10 shadow-sm animate-pulse"
+              style={{
+                width: `${Math.max(16, STROKE_WIDTH_MAP[strokeWidth] * 3.5 * camera.zoom)}px`,
+                height: `${Math.max(16, STROKE_WIDTH_MAP[strokeWidth] * 3.5 * camera.zoom)}px`,
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── Zen Mode Exit Pill (When in distraction-free full-screen) ── */}
+      {isZenMode && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+          <button
+            onClick={() => setIsZenMode(false)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-zinc-950/85 backdrop-blur-xl border border-amber-400/40 shadow-xl text-xs font-semibold text-amber-300 hover:bg-zinc-900 transition-all hover:scale-105 active:scale-95"
+          >
+            <span>✦ Exit Zen Mode (F or Esc)</span>
+            <X className="w-3.5 h-3.5 ml-1 text-amber-400" />
+          </button>
+        </div>
+      )}
+
       {/* ── Tapboard Top Brand Header & Telemetry ── */}
-      <HeaderBar
-        onNewNotebook={handleNewNotebook}
-        title={lectureTitle}
+      {!isZenMode && (
+        <HeaderBar
+          onNewNotebook={handleNewNotebook}
+          title={lectureTitle}
         onTitleChange={handleTitleChange}
         gridStyle={gridStyle}
         onGridChange={handleGridStyleChange}
@@ -3627,6 +3811,7 @@ export const Whiteboard: React.FC = () => {
           setActiveCloudDrawingId(null);
         }}
       />
+      )}
 
       {/* ── Interactive Inline Text / Sticky Note Input Overlay ── */}
       {textEditor && (
@@ -3903,33 +4088,78 @@ export const Whiteboard: React.FC = () => {
       )}
 
       {/* ── Floating Obsidian Island Toolbar ── */}
-      <Toolbar
+      {!isZenMode && (
+        <Toolbar
+          mode={mode}
+          color={color}
+          strokeWidth={strokeWidth}
+          lineStyle={lineStyle}
+          fillStyle={fillStyle}
+          camera={camera}
+          canUndo={undoStack.length > 0}
+          canRedo={redoStack.length > 0}
+          onModeChange={setMode}
+          onColorChange={setColor}
+          onWidthChange={setStrokeWidth}
+          onLineStyleChange={setLineStyle}
+          onFillStyleChange={setFillStyle}
+          onResetCamera={handleResetCamera}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          smartSnapEnabled={smartSnapEnabled}
+          onToggleSmartSnap={() => setSmartSnapEnabled((p) => !p)}
+          isFiniteMode={isFiniteMode}
+          penStyle={penStyle}
+          onPenStyleChange={setPenStyle}
+          fontStyle={fontStyle}
+          onFontStyleChange={setFontStyle}
+          theme={boardTheme}
+          favoritePens={favoritePens}
+          activeFavoriteIndex={activeFavoriteIndex}
+          onSelectFavoritePen={handleSelectFavoritePen}
+          onOpenColorPicker={() => setIsColorPickerOpen(true)}
+        />
+      )}
+
+      {/* ── Floating Mini Inking Dock (For ergonomic tablet & zen reach) ── */}
+      <FloatingMiniDock
+        isVisible={true}
         mode={mode}
+        onModeChange={setMode}
         color={color}
-        strokeWidth={strokeWidth}
-        lineStyle={lineStyle}
-        fillStyle={fillStyle}
-        camera={camera}
+        onOpenColorPicker={() => setIsColorPickerOpen(true)}
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
-        onModeChange={setMode}
-        onColorChange={setColor}
-        onWidthChange={setStrokeWidth}
-        onLineStyleChange={setLineStyle}
-        onFillStyleChange={setFillStyle}
-        onResetCamera={handleResetCamera}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
         onUndo={handleUndo}
         onRedo={handleRedo}
-        smartSnapEnabled={smartSnapEnabled}
-        onToggleSmartSnap={() => setSmartSnapEnabled((p) => !p)}
-        isFiniteMode={isFiniteMode}
-        penStyle={penStyle}
-        onPenStyleChange={setPenStyle}
-        fontStyle={fontStyle}
-        onFontStyleChange={setFontStyle}
-        theme={boardTheme}
+        currentSlideIndex={currentSlideIndex}
+        totalSlides={slides.length}
+        onPrevSlide={() => {
+          if (currentSlideIndex > 0) handleSelectSlide(currentSlideIndex - 1);
+        }}
+        onNextSlide={() => {
+          if (currentSlideIndex < slides.length - 1) handleSelectSlide(currentSlideIndex + 1);
+        }}
+        onAddSlide={handleAddBlankSlide}
+        favoritePens={favoritePens}
+        activeFavoriteIndex={activeFavoriteIndex}
+        onSelectFavoritePen={handleSelectFavoritePen}
+        isZenMode={isZenMode}
+        onToggleZenMode={() => setIsZenMode((z) => !z)}
+      />
+
+      {/* ── Educator Curated Color Studio Popover ── */}
+      <ColorPickerPopover
+        isOpen={isColorPickerOpen}
+        onClose={() => setIsColorPickerOpen(false)}
+        currentColor={color}
+        onSelectColor={(c) => {
+          setColor(c);
+          colorRef.current = c;
+          scheduleRedraw();
+        }}
       />
 
       {/* ── Native PDF Document Import Modal ── */}
@@ -3949,16 +4179,18 @@ export const Whiteboard: React.FC = () => {
       />
 
       {/* ── Unacademy Slide Controller & Drawer ── */}
-      <SlideTray
-        slides={slides}
-        currentSlideIndex={currentSlideIndex}
-        onSelectSlide={handleSelectSlide}
-        onAddBlankSlide={handleAddBlankSlide}
-        onDuplicateSlide={() => handleDuplicateSlide(currentSlideIndex)}
-        onDeleteSlide={() => handleDeleteSlide(currentSlideIndex)}
-        onReorderSlide={handleReorderSlide}
-        onFitToScreen={handleFitToScreen}
-      />
+      {!isZenMode && (
+        <SlideTray
+          slides={slides}
+          currentSlideIndex={currentSlideIndex}
+          onSelectSlide={handleSelectSlide}
+          onAddBlankSlide={handleAddBlankSlide}
+          onDuplicateSlide={() => handleDuplicateSlide(currentSlideIndex)}
+          onDeleteSlide={() => handleDeleteSlide(currentSlideIndex)}
+          onReorderSlide={handleReorderSlide}
+          onFitToScreen={handleFitToScreen}
+        />
+      )}
 
       {/* ── Enterprise In-Browser Lecture Video & Audio Recorder Widget ── */}
       <LectureRecorderWidget

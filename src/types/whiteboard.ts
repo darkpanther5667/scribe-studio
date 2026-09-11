@@ -156,13 +156,33 @@ export type BoardTheme = "dark" | "light" | "blueprint";
 /** Palette color for strokes, shapes, and notes */
 export type StrokeColor = string;
 
-export type StrokeWidth = "thin" | "medium" | "thick";
+export type StrokeWidth = "ultrathin" | "thin" | "medium" | "thick" | "broad";
 
 export const STROKE_WIDTH_MAP: Record<StrokeWidth, number> = {
+  ultrathin: 1.5,
   thin: 3,
   medium: 6,
-  thick: 12,
+  thick: 10,
+  broad: 16,
 };
+
+export const STROKE_WIDTH_ORDER: StrokeWidth[] = [
+  "ultrathin",
+  "thin",
+  "medium",
+  "thick",
+  "broad",
+];
+
+/** Quick educator favorite pen slot definition (Goodnotes / Notability style) */
+export interface FavoritePen {
+  id: string;
+  name: string;
+  style: PenStyle;
+  width: StrokeWidth;
+  color: string;
+  isHighlighter?: boolean;
+}
 
 /** Image resize handle positions */
 export type ResizeHandle = "nw" | "ne" | "sw" | "se";
