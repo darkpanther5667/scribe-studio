@@ -268,18 +268,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <>
       {/* ═══════════════════════════════════════════════════════════════════
-          1. BOTTOM-LEFT DOCK: Viewport Zoom
+          1. BOTTOM-LEFT DOCK: Viewport Zoom (Infinite Canvas Mode only)
           ═══════════════════════════════════════════════════════════════════ */}
-      <div
-        className="
-          fixed bottom-5 left-5 z-30
-          flex items-center gap-1 px-2 py-1
-          rounded-2xl bg-zinc-950/85 backdrop-blur-2xl
-          border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)]
-          select-none transition-all duration-200
-        "
-        onPointerDown={(e) => e.stopPropagation()}
-      >
+      {!isFiniteMode && (
+        <div
+          className="
+            fixed bottom-5 left-5 z-30
+            flex items-center gap-1 px-2 py-1
+            rounded-2xl bg-zinc-950/85 backdrop-blur-2xl
+            border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)]
+            select-none transition-all duration-200
+          "
+          onPointerDown={(e) => e.stopPropagation()}
+        >
         {/* Zoom Out */}
         <button
           onClick={onZoomOut}
@@ -321,36 +322,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <RotateCcw className="w-3 h-3" />
         </button>
       </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════════
           2. PRIMARY DOCK: Inking, Tools & Active Styles
-          – Bottom-center in infinite mode, left-side vertical in finite mode
+          – Always bottom-center horizontal island dock
           ═══════════════════════════════════════════════════════════════════ */}
       <div
-        className={
-          isFiniteMode
-            ? // ── Finite / Sheet mode: vertical left sidebar ──────────────────
-              `fixed left-2 top-1/2 -translate-y-1/2
-               flex flex-col items-center gap-1.5 px-1.5 py-2.5
-               rounded-2xl bg-white/90 backdrop-blur-2xl
-               border border-black/10
-               shadow-[4px_0_30px_rgba(0,0,0,0.25)]
-               z-40 select-none
-               transition-all duration-300 ease-out
-               animate-[slideInLeft_0.3s_ease-out]`
-            : // ── Infinite canvas mode: bottom-center horizontal pill ─────────
-              `fixed bottom-5 left-1/2 -translate-x-1/2
-               flex items-center gap-1.5 px-2.5 py-1.5
-               rounded-2xl bg-zinc-950/90 backdrop-blur-2xl
-               border border-white/10
-               shadow-[0_20px_50px_rgba(0,0,0,0.9)]
-               z-40 select-none
-               transition-all duration-300 ease-out`
-        }
+        className="fixed bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-zinc-950/90 backdrop-blur-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-40 select-none transition-all duration-300 ease-out"
         onPointerDown={(e) => e.stopPropagation()}
       >
         {/* ── Cluster 1: History, Navigation & Selection ── */}
-        <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-0.5 ${isFiniteMode ? "bg-black/[0.04] rounded-xl p-0.5 border border-black/8" : "bg-white/[0.03] p-0.5 rounded-xl border border-white/5"}`}>
+        <div className="flex flex-row items-center gap-0.5 bg-white/[0.03] p-0.5 rounded-xl border border-white/5">
           {/* Undo */}
           <button
             onClick={onUndo}
@@ -381,7 +364,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <Redo2 className="w-3.5 h-3.5" />
           </button>
 
-          <div className={`w-px h-3.5 ${isFiniteMode ? "bg-black/10" : "bg-white/10"} mx-0.5`} />
+          <div className="w-px h-3.5 bg-white/10 mx-0.5" />
 
           {/* Pan — hidden in finite mode */}
           {!isFiniteMode && (
@@ -403,7 +386,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "lasso"
                 ? "bg-cyan-400 text-zinc-950 font-bold shadow-md shadow-cyan-400/30"
-                : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <LassoSelect className="w-3.5 h-3.5" />
@@ -411,15 +394,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
 
         {/* ── Cluster 2: Drawing & Inking ── */}
-        <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-0.5 ${isFiniteMode ? "bg-black/[0.04] rounded-xl p-0.5 border border-black/8" : "bg-white/[0.03] p-0.5 rounded-xl border border-white/5"}`}>
+        <div className="flex flex-row items-center gap-0.5 bg-white/[0.03] p-0.5 rounded-xl border border-white/5">
           {/* Pen */}
           <button
             onClick={() => { onModeChange("draw"); setShapesOpen(false); }}
             title="Pen (P)"
             className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "draw"
-                ? isFiniteMode ? "bg-zinc-900 text-white font-semibold shadow-md" : "bg-white text-zinc-950 font-semibold shadow-md shadow-white/20"
-                : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/20"
+                : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <PenLine className="w-3.5 h-3.5" />
@@ -431,11 +414,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <button
                 onClick={() => setPenStyleOpen((p) => !p)}
                 title={`Brush style: ${PEN_STYLES.find(s => s.value === penStyle)?.label ?? penStyle}`}
-                className={`flex items-center gap-0.5 px-1.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
-                  isFiniteMode
-                    ? "text-zinc-700 hover:text-zinc-900 hover:bg-black/10 border border-black/10"
-                    : "text-zinc-300 hover:text-white hover:bg-white/10 border border-white/10"
-                } ${penStyleOpen ? (isFiniteMode ? "bg-black/10" : "bg-white/10") : ""}`}
+                className={`flex items-center gap-0.5 px-1.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 text-zinc-300 hover:text-white hover:bg-white/10 border border-white/10 ${penStyleOpen ? "bg-white/10" : ""}`}
               >
                 <span className="w-6 h-3 flex items-center opacity-80">
                   {PEN_STYLES.find(s => s.value === penStyle)?.preview}
@@ -445,14 +424,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
               {/* Style dropdown */}
               {penStyleOpen && (
-                <div className={`
-                  absolute z-50
-                  ${isFiniteMode ? "left-full ml-2 top-0" : "bottom-full mb-2 left-0"}
+                <div className="
+                  absolute z-50 bottom-full mb-2 left-0
                   flex flex-col gap-0.5 p-1.5 min-w-[175px]
                   rounded-2xl bg-zinc-950/96 backdrop-blur-2xl
                   border border-white/15 shadow-2xl shadow-black/80
                   animate-in fade-in slide-in-from-bottom-2 duration-150
-                `}>
+                ">
                   <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1">
                     Brush Style
                   </div>
@@ -482,7 +460,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "highlighter"
                 ? "bg-yellow-400 text-zinc-950 font-bold shadow-md shadow-yellow-400/30"
-                : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <Highlighter className="w-3.5 h-3.5" />
@@ -494,8 +472,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             title="Eraser (E)"
             className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "erase"
-                ? isFiniteMode ? "bg-zinc-900 text-white font-semibold shadow-md" : "bg-white text-zinc-950 font-semibold shadow-md shadow-white/20"
-                : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/20"
+                : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <Eraser className="w-3.5 h-3.5" />
@@ -504,7 +482,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           {/* Favorite Pens Quick Slots (1, 2, 3) */}
           {favoritePens.length > 0 && onSelectFavoritePen && (
             <>
-              <div className={`w-px h-3.5 ${isFiniteMode ? "bg-black/10" : "bg-white/10"} mx-0.5`} />
+              <div className="w-px h-3.5 bg-white/10 mx-0.5" />
               {favoritePens.slice(0, 3).map((pen, idx) => {
                 const isFavActive = activeFavoriteIndex === idx;
                 return (
@@ -533,7 +511,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
 
         {/* ── Cluster 3: Geometric Shapes & Objects ── */}
-        <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-0.5 ${isFiniteMode ? "bg-black/[0.04] rounded-xl p-0.5 border border-black/8" : "bg-white/[0.03] p-0.5 rounded-xl border border-white/5"}`}>
+        <div className="flex flex-row items-center gap-0.5 bg-white/[0.03] p-0.5 rounded-xl border border-white/5">
           {/* Shapes Dropdown */}
           <div className="relative">
             <button
@@ -542,7 +520,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               className={`flex items-center gap-0.5 p-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
                 isShapeActive
                   ? "bg-sky-500 text-white font-semibold shadow-md shadow-sky-500/30"
-                  : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                  : "text-zinc-400 hover:text-white hover:bg-white/10"
               }`}
             >
               {getActiveShapeIcon()}
@@ -551,13 +529,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
             {/* Shapes Floating Menu */}
             {shapesOpen && (
-              <div className={`
-                absolute ${isFiniteMode ? "left-full ml-2 top-0" : "bottom-full mb-2.5 left-0"}
+              <div className="
+                absolute bottom-full mb-2.5 left-0
                 flex flex-col gap-1 p-1.5 min-w-[170px]
                 rounded-2xl bg-zinc-950/95 backdrop-blur-2xl
                 border border-white/15 shadow-2xl shadow-black/80
                 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150
-              `}>
+              ">
                 {SHAPES_LIST.map(({ mode: m, label, icon, shortcut }) => (
                   <button
                     key={m}
@@ -581,7 +559,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "text"
                 ? "bg-purple-500 text-white font-bold shadow-md shadow-purple-500/30"
-                : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <Type className="w-3.5 h-3.5" />
@@ -594,7 +572,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "math"
                 ? "bg-cyan-400 text-zinc-950 font-bold shadow-md shadow-cyan-400/30"
-                : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <span className="font-serif italic font-bold text-xs leading-none">√x</span>
@@ -607,7 +585,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "note"
                 ? "bg-amber-400 text-zinc-950 font-bold shadow-md shadow-amber-400/30"
-                : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <StickyNote className="w-3.5 h-3.5" />
@@ -620,7 +598,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className={`p-1.5 rounded-lg transition-all duration-150 ${
               mode === "laser"
                 ? "bg-rose-500 text-white font-bold shadow-md shadow-rose-500/40"
-                : isFiniteMode ? "text-zinc-600 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                : "text-zinc-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <Radio className="w-3.5 h-3.5" />
@@ -628,7 +606,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
 
         {/* ── Section Divider ── */}
-        <div className={isFiniteMode ? "h-px w-6 bg-black/15 shrink-0 my-0.5" : "w-px h-5 bg-white/10 shrink-0 mx-0.5"} />
+        <div className="w-px h-5 bg-white/10 shrink-0 mx-0.5" />
 
         {/* ── Cluster 4: Contextual Active Tool Styling ── */}
         {mode === "erase" ? (
@@ -658,9 +636,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
         ) : (
           /* Inking / Shapes Colors, Tips, and Stroke Styles */
-          <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-1.5`}>
+          <div className="flex flex-row items-center gap-1.5">
             {/* Color Swatches */}
-            <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-1 ${isFiniteMode ? "bg-black/[0.04] p-0.5 rounded-xl border border-black/8" : "bg-white/[0.03] p-0.5 rounded-xl border border-white/5"}`}>
+            <div className="flex flex-row items-center gap-1 bg-white/[0.03] p-0.5 rounded-xl border border-white/5">
               {ACTIVE_PALETTE.map(({ value, label, glow }) => (
                 <button
                   key={value}
@@ -668,7 +646,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   onClick={() => onColorChange(value)}
                   className={`
                     w-5 h-5 rounded-full transition-transform duration-150 relative
-                    ${color === value ? `scale-110 ring-2 ${isFiniteMode ? "ring-zinc-800" : "ring-white"} ${glow}` : "opacity-80 hover:opacity-100 hover:scale-105"}
+                    ${color === value ? `scale-110 ring-2 ring-white ${glow}` : "opacity-80 hover:opacity-100 hover:scale-105"}
                   `}
                   style={{ backgroundColor: value }}
                 />
@@ -680,11 +658,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 onClick={() => {
                   if (onOpenColorPicker) onOpenColorPicker();
                 }}
-                className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95 ${
-                  isFiniteMode
-                    ? "border-black/20 text-zinc-600 hover:text-zinc-950 bg-black/[0.04]"
-                    : "border-white/20 text-zinc-300 hover:text-white bg-white/[0.05]"
-                }`}
+                className="w-5 h-5 rounded-full border flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95 border-white/20 text-zinc-300 hover:text-white bg-white/[0.05]"
                 title="Open Educator Color Studio (Palettes, Eyedropper & Recents)"
               >
                 <Palette className="w-2.5 h-2.5 text-sky-400" />
@@ -692,7 +666,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </div>
 
             {/* Tip Thickness */}
-            <div className={`flex ${isFiniteMode ? "flex-col" : "flex-row"} items-center gap-0.5 ${isFiniteMode ? "bg-black/[0.04] p-1 rounded-xl border border-black/8" : "bg-white/[0.03] p-1 rounded-xl border border-white/5"}`}>
+            <div className="flex flex-row items-center gap-0.5 bg-white/[0.03] p-1 rounded-xl border border-white/5">
               {WIDTHS.map(({ value, label, size }) => (
                 <button
                   key={value}
@@ -702,13 +676,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     flex items-center justify-center w-6 h-6 rounded-lg transition-all duration-150
                     ${
                       strokeWidth === value
-                        ? isFiniteMode ? "bg-black/20 text-zinc-900 ring-1 ring-black/30" : "bg-white/25 text-white ring-1 ring-white/40"
-                        : isFiniteMode ? "text-zinc-500 hover:text-zinc-900 hover:bg-black/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                        ? "bg-white/25 text-white ring-1 ring-white/40"
+                        : "text-zinc-400 hover:text-white hover:bg-white/10"
                     }
                   `}
                 >
                   <span
-                    className={`block rounded-full transition-transform ${isFiniteMode ? "bg-zinc-800" : "bg-white"}`}
+                    className="block rounded-full bg-white transition-transform"
                     style={{ width: size, height: size }}
                   />
                 </button>
@@ -776,12 +750,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs border transition-all duration-150 active:scale-95
                   ${
                     fontStyle === "handwriting"
-                      ? isFiniteMode
-                        ? "bg-purple-500/15 text-purple-900 border-purple-400/40 font-bold"
-                        : "bg-purple-500/25 text-purple-200 border-purple-400/40 font-bold"
-                      : isFiniteMode
-                        ? "bg-black/[0.04] text-zinc-700 border-black/10 hover:text-black"
-                        : "bg-white/[0.05] text-zinc-300 border-white/5 hover:text-white"
+                      ? "bg-purple-500/25 text-purple-200 border-purple-400/40 font-bold"
+                      : "bg-white/[0.05] text-zinc-300 border-white/5 hover:text-white"
                   }
                 `}
               >

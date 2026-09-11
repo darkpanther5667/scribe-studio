@@ -4125,7 +4125,7 @@ export const Whiteboard: React.FC = () => {
 
       {/* ── Floating Mini Inking Dock (For ergonomic tablet & zen reach) ── */}
       <FloatingMiniDock
-        isVisible={true}
+        isVisible={isZenMode}
         mode={mode}
         onModeChange={setMode}
         color={color}
