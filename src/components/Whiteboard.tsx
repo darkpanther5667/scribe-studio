@@ -1082,8 +1082,10 @@ export const Whiteboard: React.FC = () => {
       ty = firstPdfOrImg.y;
     }
 
+    // In finite mode the left sidebar toolbar is ~72px wide; offset the center rightward
+    const leftToolbarW = isFiniteModeRef.current ? 72 : 0;
     // Comfortable presentation padding (leave room for top header 64px & bottom tray 60px)
-    const padX = 24;
+    const padX = 24 + leftToolbarW / 2;
     const padY = 64;
     const availW = Math.max(100, viewW - padX * 2);
     const availH = Math.max(100, viewH - padY * 2);
@@ -1097,7 +1099,8 @@ export const Whiteboard: React.FC = () => {
 
     const nextCam: Camera = {
       zoom: fitZoom,
-      x: viewW / 2 - centerX * fitZoom,
+      // Shift canvas center right by half the toolbar width so PDF is visually centered
+      x: viewW / 2 + leftToolbarW / 2 - centerX * fitZoom,
       y: (viewH + 16) / 2 - centerY * fitZoom,
     };
 
@@ -2936,6 +2939,7 @@ export const Whiteboard: React.FC = () => {
         onRedo={handleRedo}
         smartSnapEnabled={smartSnapEnabled}
         onToggleSmartSnap={() => setSmartSnapEnabled((p) => !p)}
+        isFiniteMode={isFiniteMode}
       />
 
       {/* ── Native PDF Document Import Modal ── */}
