@@ -45,7 +45,13 @@ import {
 } from "../utils/lassoSelection";
 import { drawShape, drawStickyNote, drawText, shapeIntersectsEraser } from "../utils/shapeRenderer";
 import { sliceStrokesWithEraser } from "../utils/strokeEraser";
-import { getPath2DFromStroke } from "../utils/strokePath";
+import {
+  getPath2DFromStroke,
+  getCachedStrokePath2D,
+  invalidateStrokePath,
+  clearStrokePathCache,
+} from "../utils/strokePath";
+import { smoothStrokePoints } from "../utils/inkSmoothing";
 import { loadPdfDocument, type LoadedPdf, type RenderedPdfPage } from "../utils/pdfLoader";
 import { PdfImportModal, type PdfLayoutMode } from "./PdfImportModal";
 import { classifyStroke } from "../utils/smartInkRecognition";
@@ -98,6 +104,36 @@ import type { TabletSettings } from "../types/whiteboard";
 
 function getPenStrokeOptions(style: PenStyle | undefined, width: number) {
   switch (style) {
+    // ── Japanese Gel Pen (Pilot G2 feel) ──────────────────────────────────────
+    // Rich, dark, ultra-smooth continuous ink flow with velocity-sensitive tapers
+    case "gel":
+      return {
+        size: width * 1.15,
+        thinning: 0.38,
+        smoothing: 0.68,
+        streamline: 0.52,
+        easing: (t: number) => t,
+        start: { taper: width * 0.8, easing: (t: number) => t, cap: true },
+        end:   { taper: width * 1.1, easing: (t: number) => t, cap: true },
+        simulatePressure: false,
+        last: true,
+      };
+
+    // ── Ballpoint Pen (BIC / Parker feel) ─────────────────────────────────────
+    // Crisp, fast, light ink deposit — ideal for rapid mathematical derivations
+    case "ballpoint":
+      return {
+        size: width * 0.92,
+        thinning: 0.25,
+        smoothing: 0.52,
+        streamline: 0.38,
+        easing: (t: number) => t,
+        start: { taper: 0, cap: true },
+        end:   { taper: width * 0.6, cap: true },
+        simulatePressure: false,
+        last: true,
+      };
+
     // ── Chinese / East-Asian Calligraphy Brush ──────────────────────────────
     // Thick body, dramatic ink-wash taper at both ends, highly pressure-responsive
     case "brush":
@@ -850,24 +886,34 @@ export const Whiteboard: React.FC = () => {
 
     // 5. Render Highlighters (Rendered under pen writing, shapes, and text for natural classroom layering)
     const active = activeStrokeRef.current;
-    const allStrokes = active ? [...strokesRef.current, active] : strokesRef.current;
 
-    for (const stroke of allStrokes) {
+    for (const stroke of strokesRef.current) {
       if (!stroke.isHighlighter || stroke.points.length < 2) continue;
 
-      const rawPoints = stroke.points.map((p) => [p.x, p.y, p.pressure]);
       const baseWidth = (STROKE_WIDTH_MAP[stroke.width] ?? 6) * 2.8;
-      const pfOptions = makePfOptions(baseWidth, true);
-      const outlinePoints = getStroke(rawPoints, pfOptions);
-
-      if (outlinePoints.length === 0) continue;
-
-      const path = getPath2DFromStroke(outlinePoints);
+      const path = getCachedStrokePath2D(stroke, (_style, w) => makePfOptions(w, true), baseWidth);
       ctx.save();
       ctx.globalAlpha = 0.38;
       ctx.fillStyle = stroke.color;
       ctx.fill(path);
       ctx.restore();
+    }
+
+    // Active highlighter currently being drawn under pen tip
+    if (active && active.isHighlighter && active.points.length >= 2) {
+      const rawPoints = active.points.map((p) => [p.x, p.y, p.pressure]);
+      const baseWidth = (STROKE_WIDTH_MAP[active.width] ?? 6) * 2.8;
+      const pfOptions = makePfOptions(baseWidth, true);
+      const outlinePoints = getStroke(rawPoints, pfOptions);
+
+      if (outlinePoints.length > 0) {
+        const path = getPath2DFromStroke(outlinePoints);
+        ctx.save();
+        ctx.globalAlpha = 0.38;
+        ctx.fillStyle = active.color;
+        ctx.fill(path);
+        ctx.restore();
+      }
     }
 
     // 6. Render Sticky Notes
@@ -897,18 +943,12 @@ export const Whiteboard: React.FC = () => {
       ctx.restore();
     }
 
-    // 8. Render Normal Solid Pen Ink Strokes
-    for (const stroke of allStrokes) {
+    // 8. Render Normal Solid Pen Ink Strokes (GPU-Accelerated Path2D Cache)
+    for (const stroke of strokesRef.current) {
       if (stroke.isHighlighter || stroke.points.length < 2) continue;
 
-      const rawPoints = stroke.points.map((p) => [p.x, p.y, p.pressure]);
       const baseWidth = STROKE_WIDTH_MAP[stroke.width] ?? 4;
-      const pfOptions = getPenStrokeOptions(stroke.penStyle ?? "pen", baseWidth);
-      const outlinePoints = getStroke(rawPoints, pfOptions);
-
-      if (outlinePoints.length === 0) continue;
-
-      const path = getPath2DFromStroke(outlinePoints);
+      const path = getCachedStrokePath2D(stroke, getPenStrokeOptions, baseWidth);
 
       // Pencil style: draw with slight transparency for paper texture feel
       if (stroke.penStyle === "pencil") {
@@ -920,6 +960,28 @@ export const Whiteboard: React.FC = () => {
       } else {
         ctx.fillStyle = stroke.color;
         ctx.fill(path);
+      }
+    }
+
+    // Active inking stroke currently under pen tip (live on-the-fly)
+    if (active && !active.isHighlighter && active.points.length >= 2) {
+      const rawPoints = active.points.map((p) => [p.x, p.y, p.pressure]);
+      const baseWidth = STROKE_WIDTH_MAP[active.width] ?? 4;
+      const pfOptions = getPenStrokeOptions(active.penStyle ?? "pen", baseWidth);
+      const outlinePoints = getStroke(rawPoints, pfOptions);
+
+      if (outlinePoints.length > 0) {
+        const path = getPath2DFromStroke(outlinePoints);
+        if (active.penStyle === "pencil") {
+          ctx.save();
+          ctx.globalAlpha = 0.75;
+          ctx.fillStyle = active.color;
+          ctx.fill(path);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = active.color;
+          ctx.fill(path);
+        }
       }
     }
 
@@ -3215,7 +3277,7 @@ export const Whiteboard: React.FC = () => {
         isHighlighter: currentMode === "highlighter",
         lineStyle: lineStyleRef.current,
         penStyle: currentMode === "highlighter" ? undefined : penStyleRef.current,
-        points: [{ x: initialPoint.x, y: initialPoint.y, pressure }],
+        points: [{ x: initialPoint.x, y: initialPoint.y, pressure, time: performance.now() }],
       };
 
       setRedoStack([]);
@@ -3625,6 +3687,7 @@ export const Whiteboard: React.FC = () => {
           x: world.x,
           y: world.y,
           pressure,
+          time: performance.now(),
         });
       }
 
@@ -3832,6 +3895,7 @@ export const Whiteboard: React.FC = () => {
             setRedoStack([]);
           }
           if (scribble.erasedStrokeIds.length > 0) {
+            scribble.erasedStrokeIds.forEach((id) => invalidateStrokePath(id));
             const set = new Set(scribble.erasedStrokeIds);
             const next = strokesRef.current.filter((s) => !set.has(s.id));
             strokesRef.current = next;
@@ -3861,6 +3925,10 @@ export const Whiteboard: React.FC = () => {
       }
 
       if (finished.points.length > 1) {
+        // Apply Catmull-Rom spline smoothing and micro-jitter stabilization
+        const stabilizer = tabletSettingsRef.current.stabilizerLevel ?? "smooth";
+        finished.points = smoothStrokePoints(finished.points, stabilizer);
+
         if (snapshotBeforeGestureRef.current) {
           setUndoStack((u) => [...u, snapshotBeforeGestureRef.current!]);
           setRedoStack([]);
@@ -3917,6 +3985,7 @@ export const Whiteboard: React.FC = () => {
   const handleClear = useCallback(() => {
     setUndoStack((u) => [...u, takeSnapshot()]);
     setRedoStack([]);
+    clearStrokePathCache();
     strokesRef.current = [];
     shapesRef.current = [];
     textsRef.current = [];

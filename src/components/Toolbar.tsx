@@ -44,10 +44,29 @@ const PEN_STYLES: {
 }[] = [
   {
     value: "pen",
-    label: "Pen",
+    label: "Standard Pen",
     preview: (
       <svg viewBox="0 0 32 12" className="w-8 h-3">
         <path d="M2 10 C6 8 10 4 16 6 C22 8 26 4 30 2" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    value: "gel",
+    label: "Gel Pen (Pilot G2)",
+    preview: (
+      <svg viewBox="0 0 32 12" className="w-8 h-3">
+        <path d="M2 10 C6 8 10 4 16 6 C22 8 26 4 30 2" stroke="currentColor" strokeWidth="2.8" fill="none" strokeLinecap="round"/>
+        <path d="M2 10 C6 8 10 4 16 6" stroke="currentColor" strokeWidth="3.5" fill="none" strokeLinecap="round" opacity="0.4"/>
+      </svg>
+    ),
+  },
+  {
+    value: "ballpoint",
+    label: "Ballpoint (BIC)",
+    preview: (
+      <svg viewBox="0 0 32 12" className="w-8 h-3">
+        <path d="M2 10 C6 8 10 4 16 6 C22 8 26 4 30 2" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
       </svg>
     ),
   },

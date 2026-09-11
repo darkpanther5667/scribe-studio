@@ -7,6 +7,7 @@ export interface StrokePoint {
   x: number;
   y: number;
   pressure: number;
+  time?: number;
 }
 
 /** Line style options: Solid, Dashed, Dotted */
@@ -18,13 +19,15 @@ export type FillStyle = "none" | "semi";
 /**
  * Pen brush style — controls how the perfect-freehand outline is computed.
  * - pen       : balanced pressure-sensitive ink (default)
+ * - gel       : Japanese gel pen (Pilot G2 feel) — ultra-smooth, rich ink flow with speed tapers
+ * - ballpoint : ballpoint pen (BIC / Parker feel) — crisp, clean, rapid math derivation
  * - brush     : Chinese calligraphy brush — dramatic taper, wide body
  * - fountain  : fountain pen — medium taper, elegant nib shape
  * - marker    : flat-cap marker — almost zero thinning, round ends
  * - pencil    : pencil — light, grainy, slightly irregular
  * - chisel    : flat calligraphy nib — angle-based width variation
  */
-export type PenStyle = "pen" | "brush" | "fountain" | "marker" | "pencil" | "chisel";
+export type PenStyle = "pen" | "gel" | "ballpoint" | "brush" | "fountain" | "marker" | "pencil" | "chisel";
 
 /** A fully recorded stroke, highlighter, or eraser path committed to history */
 export interface Stroke {
@@ -196,11 +199,15 @@ export type PalmRejectionMode = "strict" | "standard" | "off";
 /** Action triggered when holding the stylus rocker / side barrel button */
 export type BarrelButtonAction = "erase" | "lasso" | "pan";
 
+/** Intelligent handwriting curve smoothing and micro-jitter stabilization */
+export type StabilizerLevel = "off" | "smooth" | "calligraphy";
+
 /** Comprehensive Hardware Pen Tablet & Stylus Settings */
 export interface TabletSettings {
   pressureCurve: PressureCurve;
   palmRejection: PalmRejectionMode;
   barrelButtonAction: BarrelButtonAction;
+  stabilizerLevel?: StabilizerLevel;
   smoothing: number; // 0.1 to 1.0
   streamline: number; // 0.1 to 1.0
   showHoverCursor: boolean;

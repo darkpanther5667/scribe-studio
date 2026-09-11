@@ -7,7 +7,7 @@ import {
   Check,
   Zap,
 } from "lucide-react";
-import type { TabletSettings, PressureCurve, PalmRejectionMode, BarrelButtonAction } from "../types/whiteboard";
+import type { TabletSettings, PressureCurve, PalmRejectionMode, BarrelButtonAction, StabilizerLevel } from "../types/whiteboard";
 import {
   DEFAULT_TABLET_SETTINGS,
   TABLET_PROFILES,
@@ -355,6 +355,51 @@ export const PenTabletModal: React.FC<PenTabletModalProps> = ({
                 >
                   <div className="font-semibold text-xs">{c.label}</div>
                   <div className="text-[10px] text-zinc-400 mt-1 leading-snug">{c.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 3.5. Intelligent Curve Stabilizer & Micro-Jitter Filter */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                Handwriting Stabilizer & Anti-Wobble
+              </span>
+              <span className="text-[10px] text-cyan-400 font-mono">Catmull-Rom Splines</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                {
+                  value: "smooth",
+                  label: "✨ Studio Smooth",
+                  desc: "Goodnotes-style natural handwriting flow with tremor elimination (Recommended).",
+                },
+                {
+                  value: "calligraphy",
+                  label: "🖋️ Calligraphy Flow",
+                  desc: "Silky chordal spline curves for confident, museum-grade blackboard formulas.",
+                },
+                {
+                  value: "off",
+                  label: "🎯 Raw (1:1 Sketch)",
+                  desc: "Direct tablet digitizer points without spline interpolation.",
+                },
+              ].map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => updateSetting("stabilizerLevel", s.value as StabilizerLevel)}
+                  className={`
+                    p-2.5 rounded-xl border text-left transition-all
+                    ${
+                      (localSettings.stabilizerLevel ?? "smooth") === s.value
+                        ? "bg-cyan-500/20 border-cyan-400/60 text-white shadow-sm"
+                        : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                    }
+                  `}
+                >
+                  <div className="font-semibold text-xs">{s.label}</div>
+                  <div className="text-[10px] text-zinc-400 mt-1 leading-snug">{s.desc}</div>
                 </button>
               ))}
             </div>

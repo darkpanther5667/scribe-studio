@@ -6,6 +6,7 @@ export const DEFAULT_TABLET_SETTINGS: TabletSettings = {
   pressureCurve: "medium",
   palmRejection: "strict",
   barrelButtonAction: "erase",
+  stabilizerLevel: "smooth",
   smoothing: 0.6,
   streamline: 0.45,
   showHoverCursor: true,
