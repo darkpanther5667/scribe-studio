@@ -267,7 +267,11 @@ export const Whiteboard: React.FC = () => {
   const textFontStyleRef = useRef<"normal" | "handwriting">(fontStyle);
   textFontStyleRef.current = fontStyle;
 
-  const [gridStyle, setGridStyle] = useState<GridStyle>("dots");
+  const [gridStyle, setGridStyle] = useState<GridStyle>(() => {
+    return (localStorage.getItem("scribe_grid_style") as GridStyle) || "dots";
+  });
+  const gridStyleRef = useRef<GridStyle>(gridStyle);
+  gridStyleRef.current = gridStyle;
   const [boardTheme, setBoardTheme] = useState<BoardTheme>(() => {
     return (localStorage.getItem("scribe_board_theme") as BoardTheme) || "dark";
   });
@@ -509,6 +513,7 @@ export const Whiteboard: React.FC = () => {
     const width = canvas.offsetWidth;
     const height = canvas.offsetHeight;
     const theme = boardThemeRef.current;
+    const style = gridStyleRef.current;
     const colors = getThemeColors(theme);
 
     // 1. Clear viewport & fill theme background
@@ -516,7 +521,7 @@ export const Whiteboard: React.FC = () => {
     ctx.fillRect(0, 0, width, height);
 
     // 2. Draw Infinite Educator Template
-    drawInfiniteTemplate(ctx, width, height, cam, gridStyle, theme);
+    drawInfiniteTemplate(ctx, width, height, cam, style, theme);
 
     // 3. Apply Camera World Transform
     ctx.save();
@@ -566,7 +571,7 @@ export const Whiteboard: React.FC = () => {
       }
 
       // ── Template overlay inside the sheet based on active gridStyle ───────────
-      drawBoundedSheetTemplate(ctx, slideX, slideY, slideW, slideH, cam, gridStyle, theme);
+      drawBoundedSheetTemplate(ctx, slideX, slideY, slideW, slideH, cam, style, theme);
     } else {
       // ── Infinite canvas: subtle ghost outline only ─────────────────────────
       ctx.strokeStyle = colors.primaryLine;
@@ -905,13 +910,20 @@ export const Whiteboard: React.FC = () => {
 
     // 14. Restore camera transform
     ctx.restore();
-  }, [gridStyle, getCtx, getEraserRadius]);
+  }, [getCtx, getEraserRadius]);
 
   // ── rAF Scheduling ──────────────────────────────────────────────────────────
   const scheduleRedraw = useCallback(() => {
     cancelAnimationFrame(rafIdRef.current);
     rafIdRef.current = requestAnimationFrame(redraw);
   }, [redraw]);
+
+  const handleGridStyleChange = useCallback((newStyle: GridStyle) => {
+    setGridStyle(newStyle);
+    gridStyleRef.current = newStyle;
+    localStorage.setItem("scribe_grid_style", newStyle);
+    scheduleRedraw();
+  }, [scheduleRedraw]);
 
   const handleThemeChange = useCallback((newTheme: BoardTheme) => {
     setBoardTheme(newTheme);
@@ -1534,6 +1546,9 @@ export const Whiteboard: React.FC = () => {
   const isLoadedFromStorageRef = useRef(false);
 
   useEffect(() => {
+    if (isLoadedFromStorageRef.current) return;
+    isLoadedFromStorageRef.current = true;
+
     // 1. Restore from IndexedDB on startup
     (async () => {
       try {
@@ -1542,10 +1557,13 @@ export const Whiteboard: React.FC = () => {
           setLectureTitle(cached.title || "Untitled Lecture");
           setSlides(cached.slides);
           slidesRef.current = cached.slides;
-          setGridStyle(cached.gridStyle || "dots");
+          const restoredGrid = cached.gridStyle || (localStorage.getItem("scribe_grid_style") as GridStyle) || "dots";
+          setGridStyle(restoredGrid);
+          gridStyleRef.current = restoredGrid;
           if (cached.boardTheme) {
             setBoardTheme(cached.boardTheme);
             boardThemeRef.current = cached.boardTheme;
+            localStorage.setItem("scribe_board_theme", cached.boardTheme);
           }
           setIsFiniteMode(Boolean(cached.isFiniteMode));
           isFiniteModeRef.current = Boolean(cached.isFiniteMode);
@@ -1557,8 +1575,6 @@ export const Whiteboard: React.FC = () => {
         }
       } catch (err) {
         console.warn("[Tapboard] Auto-restore error:", err);
-      } finally {
-        isLoadedFromStorageRef.current = true;
       }
     })();
 
@@ -2119,10 +2135,9 @@ export const Whiteboard: React.FC = () => {
           break;
         case "g": {
           const sequence: GridStyle[] = ["dots", "grid", "ruled", "cornell", "isometric", "music", "none"];
-          setGridStyle((g) => {
-            const nextIdx = (sequence.indexOf(g) + 1) % sequence.length;
-            return sequence[nextIdx];
-          });
+          const currentStyle = gridStyleRef.current;
+          const nextIdx = (sequence.indexOf(currentStyle) + 1) % sequence.length;
+          handleGridStyleChange(sequence[nextIdx]);
           break;
         }
         case "0":
@@ -2160,7 +2175,7 @@ export const Whiteboard: React.FC = () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [handleUndo, handleRedo, handleNewNotebook, handleAddBlankSlide, handleSelectSlide, handleFitToScreen, toggleFullscreen, scheduleRedraw]);
+  }, [handleUndo, handleRedo, handleNewNotebook, handleAddBlankSlide, handleSelectSlide, handleFitToScreen, toggleFullscreen, handleGridStyleChange, scheduleRedraw]);
 
   // ── Hit-testing images and resize handles ────────────────────────────────────
   const hitTestImageHandle = (
@@ -3270,10 +3285,7 @@ export const Whiteboard: React.FC = () => {
         title={lectureTitle}
         onTitleChange={handleTitleChange}
         gridStyle={gridStyle}
-        onGridChange={(g) => {
-          setGridStyle(g);
-          scheduleRedraw();
-        }}
+        onGridChange={handleGridStyleChange}
         boardTheme={boardTheme}
         onThemeChange={handleThemeChange}
         onPdfUpload={handlePdfUpload}
