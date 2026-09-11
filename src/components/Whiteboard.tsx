@@ -71,6 +71,12 @@ import {
 } from "../lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon } from "lucide-react";
+import { ClassroomTimer } from "./ClassroomTimer";
+import { PresentationCurtain } from "./PresentationCurtain";
+import { VirtualRuler, type RulerState } from "./VirtualRuler";
+import { FunctionPlotterModal } from "./FunctionPlotterModal";
+import { downloadSlideSvg } from "../utils/svgExporter";
+import { findScribbleTargets } from "../utils/scribbleErase";
 
 // ─── Pen style → perfect-freehand options ────────────────────────────────────
 
@@ -310,6 +316,27 @@ export const Whiteboard: React.FC = () => {
 
   const [isMathModalOpen, setIsMathModalOpen] = useState(false);
   const [pendingMathPos, setPendingMathPos] = useState<{ x: number; y: number } | null>(null);
+
+  // ── Educator Studio Superpower States ──────────────────────────────────────
+  const [isTimerOpen, setIsTimerOpen] = useState(false);
+  const [isCurtainOpen, setIsCurtainOpen] = useState(false);
+  const [isPlotterOpen, setIsPlotterOpen] = useState(false);
+  const [isSpotlightActive, setIsSpotlightActive] = useState(false);
+  const isSpotlightActiveRef = useRef(false);
+  isSpotlightActiveRef.current = isSpotlightActive;
+  const spotlightPosRef = useRef<{ x: number; y: number }>({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+
+  const [rulerState, setRulerState] = useState<RulerState>({
+    isActive: false,
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+    angle: 0,
+    length: 540,
+    height: 64,
+    snapEnabled: true,
+  });
+  const rulerStateRef = useRef<RulerState>(rulerState);
+  rulerStateRef.current = rulerState;
 
   // ── Enterprise Video & Mic Lecture Recorder State ────────────────────────────
   const [recorderState, setRecorderState] = useState<RecorderState>({
@@ -674,44 +701,7 @@ export const Whiteboard: React.FC = () => {
       }
     }
 
-    // 5. Render Sticky Notes
-    for (const note of notesRef.current) {
-      drawStickyNote(ctx, note, cam.zoom);
-    }
-
-    // 6. Render Geometric Shapes (Committed + Active Preview + Live Snapped Shape)
-    const previewShape = activeShapeRef.current || snappedShapeRef.current;
-    const allShapes = previewShape
-      ? [...shapesRef.current, previewShape]
-      : shapesRef.current;
-
-    for (const shape of allShapes) {
-      drawShape(ctx, shape, cam.zoom);
-    }
-
-    // Visual snap indicator badge when smart shape snap just occurred
-    if (isSnappedShapeRef.current && snappedShapeRef.current) {
-      const sh = snappedShapeRef.current;
-      const minX = Math.min(sh.x1, sh.x2);
-      const minY = Math.min(sh.y1, sh.y2);
-      ctx.save();
-      ctx.font = `600 ${Math.max(10, 11 / cam.zoom)}px monospace`;
-      ctx.fillStyle = "#38bdf8";
-      ctx.fillText("✦ SNAPPED", minX, minY - 8 / cam.zoom);
-      ctx.restore();
-    }
-
-    // 7. Render Typed Text Items
-    for (const textItem of textsRef.current) {
-      drawText(ctx, textItem, cam.zoom);
-    }
-
-    // 7.5. Render KaTeX Mathematical Equations & Formulas
-    for (const mathItem of mathsRef.current) {
-      drawMathItem(ctx, mathItem, cam.zoom, scheduleRedraw);
-    }
-
-    // 8. Render Highlighters
+    // 5. Render Highlighters (Rendered under pen writing, shapes, and text for natural classroom layering)
     const active = activeStrokeRef.current;
     const allStrokes = active ? [...strokesRef.current, active] : strokesRef.current;
 
@@ -733,7 +723,34 @@ export const Whiteboard: React.FC = () => {
       ctx.restore();
     }
 
-    // 9. Render Normal Solid Pen Ink Strokes
+    // 6. Render Sticky Notes
+    for (const note of notesRef.current) {
+      drawStickyNote(ctx, note, cam.zoom);
+    }
+
+    // 7. Render Geometric Shapes (Committed + Active Preview + Live Snapped Shape)
+    const previewShape = activeShapeRef.current || snappedShapeRef.current;
+    const allShapes = previewShape
+      ? [...shapesRef.current, previewShape]
+      : shapesRef.current;
+
+    for (const shape of allShapes) {
+      drawShape(ctx, shape, cam.zoom);
+    }
+
+    // Visual snap indicator badge when smart shape snap just occurred
+    if (isSnappedShapeRef.current && snappedShapeRef.current) {
+      const sh = snappedShapeRef.current;
+      const minX = Math.min(sh.x1, sh.x2);
+      const minY = Math.min(sh.y1, sh.y2);
+      ctx.save();
+      ctx.font = `600 ${Math.max(10, 11 / cam.zoom)}px monospace`;
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillText("✦ SNAPPED", minX, minY - 8 / cam.zoom);
+      ctx.restore();
+    }
+
+    // 8. Render Normal Solid Pen Ink Strokes
     for (const stroke of allStrokes) {
       if (stroke.isHighlighter || stroke.points.length < 2) continue;
 
@@ -757,6 +774,16 @@ export const Whiteboard: React.FC = () => {
         ctx.fillStyle = stroke.color;
         ctx.fill(path);
       }
+    }
+
+    // 9. Render Typed Text Items
+    for (const textItem of textsRef.current) {
+      drawText(ctx, textItem, cam.zoom);
+    }
+
+    // 9.5. Render KaTeX Mathematical Equations & Formulas
+    for (const mathItem of mathsRef.current) {
+      drawMathItem(ctx, mathItem, cam.zoom, scheduleRedraw);
     }
 
     // 10. Render Glowing Laser Comet Trail
@@ -910,6 +937,27 @@ export const Whiteboard: React.FC = () => {
 
     // 14. Restore camera transform
     ctx.restore();
+
+    // 15. Focus Spotlight Mode (Audience guidance beam)
+    if (isSpotlightActiveRef.current) {
+      ctx.save();
+      const sp = spotlightPosRef.current;
+      const radius = 180;
+      // Draw 85% vignette mask with clear circular spotlight
+      ctx.fillStyle = "rgba(4, 7, 13, 0.88)";
+      ctx.beginPath();
+      ctx.rect(0, 0, width, height);
+      ctx.arc(sp.x, sp.y, radius, 0, Math.PI * 2, true);
+      ctx.fill();
+
+      // Soft glowing cyan guide ring
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.5)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sp.x, sp.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }, [getCtx, getEraserRadius]);
 
   // ── rAF Scheduling ──────────────────────────────────────────────────────────
@@ -1399,6 +1447,120 @@ export const Whiteboard: React.FC = () => {
     setCurrentSlideIndex(newActiveIdx);
     loadSlide(nextDeck[newActiveIdx]);
   }, [syncCurrentSlideToDeck, loadSlide]);
+
+  const handleReorderSlide = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= slidesRef.current.length || toIndex >= slidesRef.current.length) return;
+    const deck = syncCurrentSlideToDeck();
+    const nextDeck = [...deck];
+    const [moved] = nextDeck.splice(fromIndex, 1);
+    nextDeck.splice(toIndex, 0, moved);
+    slidesRef.current = nextDeck;
+    setSlides(nextDeck);
+
+    if (currentSlideIndexRef.current === fromIndex) {
+      setCurrentSlideIndex(toIndex);
+      currentSlideIndexRef.current = toIndex;
+    } else if (fromIndex < currentSlideIndexRef.current && toIndex >= currentSlideIndexRef.current) {
+      setCurrentSlideIndex(currentSlideIndexRef.current - 1);
+      currentSlideIndexRef.current = currentSlideIndexRef.current - 1;
+    } else if (fromIndex > currentSlideIndexRef.current && toIndex <= currentSlideIndexRef.current) {
+      setCurrentSlideIndex(currentSlideIndexRef.current + 1);
+      currentSlideIndexRef.current = currentSlideIndexRef.current + 1;
+    }
+    scheduleRedraw();
+  }, [syncCurrentSlideToDeck, scheduleRedraw]);
+
+  const handleExportSvg = useCallback(() => {
+    const deck = syncCurrentSlideToDeck();
+    const currentSlide = deck[currentSlideIndexRef.current];
+    if (currentSlide) {
+      downloadSlideSvg(currentSlide, `${lectureTitle}_Slide_${currentSlideIndexRef.current + 1}`, boardThemeRef.current);
+    }
+  }, [syncCurrentSlideToDeck, lectureTitle]);
+
+  const handleInsertFunctionPlot = useCallback((plotData: {
+    expr: string;
+    points: { x: number; y: number }[];
+    label: string;
+    xMin: number;
+    xMax: number;
+    yMin: number;
+    yMax: number;
+  }) => {
+    if (plotData.points.length < 2) return;
+    takeSnapshot();
+
+    const cam = cameraRef.current;
+    const originWorldX = -cam.x / cam.zoom + (window.innerWidth / 2) / cam.zoom;
+    const originWorldY = -cam.y / cam.zoom + (window.innerHeight / 2) / cam.zoom;
+
+    const plotW = 440;
+    const plotH = 280;
+    const leftX = originWorldX - plotW / 2;
+    const topY = originWorldY - plotH / 2;
+
+    const xSpan = Math.max(0.1, plotData.xMax - plotData.xMin);
+    const yMin = Math.min(-1, plotData.yMin);
+    const yMax = Math.max(1, plotData.yMax);
+    const ySpan = Math.max(0.1, yMax - yMin);
+
+    const mapX = (x: number) => leftX + ((x - plotData.xMin) / xSpan) * plotW;
+    const mapY = (y: number) => topY + plotH - ((y - yMin) / ySpan) * plotH;
+
+    // 1. Coordinate plane axes
+    const axesShape: ShapeItem = {
+      id: `plot_axes_${Date.now()}`,
+      type: "coordinate_plane",
+      x1: leftX,
+      y1: topY,
+      x2: leftX + plotW,
+      y2: topY + plotH,
+      color: boardThemeRef.current === "light" ? "#475569" : "#94A3B8",
+      width: "thin",
+      lineStyle: "solid",
+      fillStyle: "none",
+    };
+
+    // 2. Plotted function curve
+    const curvePoints = plotData.points.map((p) => ({
+      x: mapX(p.x),
+      y: mapY(p.y),
+      pressure: 0.5,
+    }));
+
+    const curveStroke: Stroke = {
+      id: `plot_curve_${Date.now()}`,
+      points: curvePoints,
+      color: "#38bdf8",
+      width: "medium",
+      penStyle: "pen",
+    };
+
+    // 3. Formula text badge
+    const labelText: TextItem = {
+      id: `plot_label_${Date.now()}`,
+      x: leftX + 16,
+      y: topY + 12,
+      text: plotData.label,
+      color: "#38bdf8",
+      fontSize: 18,
+      fontStyle: "normal",
+    };
+
+    const nextShapes = [...shapesRef.current, axesShape];
+    shapesRef.current = nextShapes;
+    setShapes(nextShapes);
+
+    const nextStrokes = [...strokesRef.current, curveStroke];
+    strokesRef.current = nextStrokes;
+    setStrokes(nextStrokes);
+
+    const nextTexts = [...textsRef.current, labelText];
+    textsRef.current = nextTexts;
+    setTexts(nextTexts);
+
+    scheduleRedraw();
+  }, [takeSnapshot, scheduleRedraw]);
 
   const handleExportNotesPdf = useCallback(async () => {
     if (isExportingNotes) return;
@@ -2090,6 +2252,28 @@ export const Whiteboard: React.FC = () => {
         return;
       }
 
+      // Toggle Spotlight Focus Mode (Shift + K)
+      if (e.shiftKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSpotlightActive((prev) => {
+          isSpotlightActiveRef.current = !prev;
+          scheduleRedraw();
+          return !prev;
+        });
+        return;
+      }
+
+      // Toggle Virtual Straightedge Ruler (Shift + R)
+      if (e.shiftKey && e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        setRulerState((prev) => {
+          const next = { ...prev, isActive: !prev.isActive };
+          rulerStateRef.current = next;
+          return next;
+        });
+        return;
+      }
+
       switch (e.key.toLowerCase()) {
         case "s":
           setMode("lasso");
@@ -2600,6 +2784,15 @@ export const Whiteboard: React.FC = () => {
       isSnappedShapeRef.current = false;
       snappedShapeRef.current = null;
 
+      let initialPoint = { x: worldPoint.x, y: worldPoint.y };
+      if (rulerStateRef.current.isActive && rulerStateRef.current.snapEnabled) {
+        const snapped = snapScreenPointToRuler(e.clientX, e.clientY, rulerStateRef.current);
+        if (snapped) {
+          const snappedWorld = screenToWorld(snapped.x - rect.left, snapped.y - rect.top);
+          initialPoint = { x: snappedWorld.x, y: snappedWorld.y };
+        }
+      }
+
       activeStrokeRef.current = {
         id: crypto.randomUUID(),
         color: colorRef.current,
@@ -2607,7 +2800,7 @@ export const Whiteboard: React.FC = () => {
         isHighlighter: currentMode === "highlighter",
         lineStyle: lineStyleRef.current,
         penStyle: currentMode === "highlighter" ? undefined : penStyleRef.current,
-        points: [{ x: worldPoint.x, y: worldPoint.y, pressure }],
+        points: [{ x: initialPoint.x, y: initialPoint.y, pressure }],
       };
 
       setRedoStack([]);
@@ -2615,6 +2808,44 @@ export const Whiteboard: React.FC = () => {
     },
     [screenToWorld, findHitImage, getEraserRadius, textEditor, commitTextEditor, takeSnapshot, scheduleRedraw]
   );
+
+  function snapScreenPointToRuler(
+    screenX: number,
+    screenY: number,
+    ruler: RulerState
+  ): { x: number; y: number } | null {
+    if (!ruler.isActive || !ruler.snapEnabled) return null;
+    const rad = (ruler.angle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    const dx = screenX - ruler.x;
+    const dy = screenY - ruler.y;
+
+    const localX = dx * cos + dy * sin;
+    const localY = -dx * sin + dy * cos;
+
+    if (Math.abs(localX) > ruler.length / 2 + 10) return null;
+
+    const distToTop = Math.abs(localY - (-ruler.height / 2));
+    const distToBottom = Math.abs(localY - (ruler.height / 2));
+
+    const snapDist = 22;
+    let targetLocalY: number | null = null;
+    if (distToTop < snapDist) {
+      targetLocalY = -ruler.height / 2;
+    } else if (distToBottom < snapDist) {
+      targetLocalY = ruler.height / 2;
+    }
+
+    if (targetLocalY === null) return null;
+
+    const clampedLocalX = Math.max(-ruler.length / 2, Math.min(ruler.length / 2, localX));
+    const snappedScreenX = ruler.x + clampedLocalX * cos - targetLocalY * sin;
+    const snappedScreenY = ruler.y + clampedLocalX * sin + targetLocalY * cos;
+
+    return { x: snappedScreenX, y: snappedScreenY };
+  }
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -2664,6 +2895,11 @@ export const Whiteboard: React.FC = () => {
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
       const worldPoint = screenToWorld(screenX, screenY);
+
+      spotlightPosRef.current = { x: e.clientX, y: e.clientY };
+      if (isSpotlightActiveRef.current) {
+        scheduleRedraw();
+      }
 
       if (e.pointerType === "pen" && e.pressure > 0) {
         setIsLiveStylus(true);
@@ -2926,8 +3162,17 @@ export const Whiteboard: React.FC = () => {
           : [e.nativeEvent];
 
       for (const ev of events) {
-        const sx = ev.clientX - rect.left;
-        const sy = ev.clientY - rect.top;
+        let sx = ev.clientX - rect.left;
+        let sy = ev.clientY - rect.top;
+
+        if (rulerStateRef.current.isActive && rulerStateRef.current.snapEnabled) {
+          const snapped = snapScreenPointToRuler(ev.clientX, ev.clientY, rulerStateRef.current);
+          if (snapped) {
+            sx = snapped.x - rect.left;
+            sy = snapped.y - rect.top;
+          }
+        }
+
         const world = screenToWorld(sx, sy);
         const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
 
@@ -3116,6 +3361,50 @@ export const Whiteboard: React.FC = () => {
       isSnappedShapeRef.current = false;
       snappedShapeRef.current = null;
 
+      // Check for natural scribble-to-erase gesture
+      if (!finished.isHighlighter && finished.points.length >= 12) {
+        const scribble = findScribbleTargets(
+          finished.points,
+          strokesRef.current,
+          shapesRef.current,
+          textsRef.current,
+          notesRef.current
+        );
+
+        if (scribble.isScribble) {
+          if (snapshotBeforeGestureRef.current) {
+            setUndoStack((u) => [...u, snapshotBeforeGestureRef.current!]);
+            setRedoStack([]);
+          }
+          if (scribble.erasedStrokeIds.length > 0) {
+            const set = new Set(scribble.erasedStrokeIds);
+            const next = strokesRef.current.filter((s) => !set.has(s.id));
+            strokesRef.current = next;
+            setStrokes(next);
+          }
+          if (scribble.erasedShapeIds.length > 0) {
+            const set = new Set(scribble.erasedShapeIds);
+            const next = shapesRef.current.filter((s) => !set.has(s.id));
+            shapesRef.current = next;
+            setShapes(next);
+          }
+          if (scribble.erasedTextIds.length > 0) {
+            const set = new Set(scribble.erasedTextIds);
+            const next = textsRef.current.filter((t) => !set.has(t.id));
+            textsRef.current = next;
+            setTexts(next);
+          }
+          if (scribble.erasedNoteIds.length > 0) {
+            const set = new Set(scribble.erasedNoteIds);
+            const next = notesRef.current.filter((n) => !set.has(n.id));
+            notesRef.current = next;
+            setNotes(next);
+          }
+          scheduleRedraw();
+          return;
+        }
+      }
+
       if (finished.points.length > 1) {
         if (snapshotBeforeGestureRef.current) {
           setUndoStack((u) => [...u, snapshotBeforeGestureRef.current!]);
@@ -3291,6 +3580,7 @@ export const Whiteboard: React.FC = () => {
         onPdfUpload={handlePdfUpload}
         onExport={handleExport}
         onExportNotesPdf={handleExportNotesPdf}
+        onExportSvg={handleExportSvg}
         isExportingNotes={isExportingNotes}
         isFullscreen={isFullscreen}
         onToggleFullscreen={toggleFullscreen}
@@ -3300,6 +3590,25 @@ export const Whiteboard: React.FC = () => {
           toggleFiniteMode();
           scheduleRedraw();
         }}
+        onToggleTimer={() => setIsTimerOpen((p) => !p)}
+        isTimerOpen={isTimerOpen}
+        onToggleCurtain={() => setIsCurtainOpen((p) => !p)}
+        isCurtainOpen={isCurtainOpen}
+        onToggleRuler={() => setRulerState((p) => {
+          const next = { ...p, isActive: !p.isActive };
+          rulerStateRef.current = next;
+          return next;
+        })}
+        isRulerActive={rulerState.isActive}
+        onOpenPlotter={() => setIsPlotterOpen(true)}
+        onToggleSpotlight={() => {
+          setIsSpotlightActive((p) => {
+            isSpotlightActiveRef.current = !p;
+            scheduleRedraw();
+            return !p;
+          });
+        }}
+        isSpotlightActive={isSpotlightActive}
         onClear={handleClear}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         isPenActive={isLiveStylus}
@@ -3647,6 +3956,7 @@ export const Whiteboard: React.FC = () => {
         onAddBlankSlide={handleAddBlankSlide}
         onDuplicateSlide={() => handleDuplicateSlide(currentSlideIndex)}
         onDeleteSlide={() => handleDeleteSlide(currentSlideIndex)}
+        onReorderSlide={handleReorderSlide}
         onFitToScreen={handleFitToScreen}
       />
 
@@ -3666,6 +3976,41 @@ export const Whiteboard: React.FC = () => {
           setPendingMathPos(null);
         }}
         onInsert={handleInsertMath}
+      />
+
+      {/* ── Classroom Countdown Timer & Stopwatch ── */}
+      <ClassroomTimer
+        isOpen={isTimerOpen}
+        onClose={() => setIsTimerOpen(false)}
+      />
+
+      {/* ── Presentation Solution Reveal Curtain ── */}
+      <PresentationCurtain
+        isOpen={isCurtainOpen}
+        onClose={() => setIsCurtainOpen(false)}
+      />
+
+      {/* ── Virtual STEM Straightedge Ruler ── */}
+      <VirtualRuler
+        rulerState={rulerState}
+        onChange={(next) => {
+          setRulerState(next);
+          rulerStateRef.current = next;
+        }}
+        onClose={() => {
+          setRulerState((p) => {
+            const next = { ...p, isActive: false };
+            rulerStateRef.current = next;
+            return next;
+          });
+        }}
+      />
+
+      {/* ── Mathematical Function Plotter Modal (y = f(x)) ── */}
+      <FunctionPlotterModal
+        isOpen={isPlotterOpen}
+        onClose={() => setIsPlotterOpen(false)}
+        onInsertPlot={handleInsertFunctionPlot}
       />
 
       {/* ── Supabase Authentication Modal ── */}

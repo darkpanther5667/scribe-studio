@@ -30,6 +30,12 @@ import {
   Music,
   Square,
   Palette,
+  Clock,
+  Ruler,
+  Activity,
+  Eye,
+  Radio,
+  FileCode,
 } from "lucide-react";
 import type { GridStyle, BoardTheme } from "../types/whiteboard";
 
@@ -42,6 +48,7 @@ interface HeaderBarProps {
   onPdfUpload: (file: File) => void;
   onExport: () => void;
   onExportNotesPdf: () => void;
+  onExportSvg?: () => void;
   isExportingNotes?: boolean;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
@@ -63,6 +70,15 @@ interface HeaderBarProps {
   onSignOut?: () => void;
   boardTheme?: BoardTheme;
   onThemeChange?: (theme: BoardTheme) => void;
+  onToggleTimer?: () => void;
+  isTimerOpen?: boolean;
+  onToggleCurtain?: () => void;
+  isCurtainOpen?: boolean;
+  onToggleRuler?: () => void;
+  isRulerActive?: boolean;
+  onOpenPlotter?: () => void;
+  onToggleSpotlight?: () => void;
+  isSpotlightActive?: boolean;
 }
 
 type DropdownMenu = "file" | "export" | "profile" | "template" | null;
@@ -97,6 +113,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenAuth,
   onOpenCloudLibrary,
   onSignOut,
+  onExportSvg,
+  onToggleTimer,
+  isTimerOpen = false,
+  onToggleCurtain,
+  isCurtainOpen = false,
+  onToggleRuler,
+  isRulerActive = false,
+  onOpenPlotter,
+  onToggleSpotlight,
+  isSpotlightActive = false,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
@@ -545,6 +571,26 @@ const THEME_OPTIONS: {
                 </div>
                 <span className="text-[10px] font-mono text-zinc-500">PDF</span>
               </button>
+
+              {/* Vector SVG Export */}
+              {onExportSvg && (
+                <button
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onExportSvg();
+                  }}
+                  className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-200 hover:text-white hover:bg-white/[0.08] transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <FileCode className="w-4 h-4 text-cyan-400" />
+                    <div className="flex flex-col text-left">
+                      <span className="font-medium">Export Vector SVG</span>
+                      <span className="text-[10px] text-zinc-500">Infinite resolution vector graphic</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500">SVG</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -707,6 +753,72 @@ const THEME_OPTIONS: {
               `}
             >
               {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+            </button>
+          )}
+        </div>
+
+        {/* ── Educator Studio Superpowers Dock ── */}
+        <div className="hidden lg:flex items-center p-0.5 rounded-xl bg-white/[0.03] border border-white/5 gap-0.5">
+          {/* Classroom Timer */}
+          {onToggleTimer && (
+            <button
+              onClick={onToggleTimer}
+              title={isTimerOpen ? "Close Classroom Timer" : "Classroom Timer & Stopwatch"}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isTimerOpen ? "text-amber-300 bg-amber-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Virtual Straightedge Ruler */}
+          {onToggleRuler && (
+            <button
+              onClick={onToggleRuler}
+              title={isRulerActive ? "Hide Virtual Ruler (R)" : "Virtual Straightedge Ruler (R)"}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isRulerActive ? "text-sky-300 bg-sky-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+              }`}
+            >
+              <Ruler className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Function Plotter */}
+          {onOpenPlotter && (
+            <button
+              onClick={onOpenPlotter}
+              title="Mathematical Function Plotter (y = f(x))"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors"
+            >
+              <Activity className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Solution Reveal Curtain */}
+          {onToggleCurtain && (
+            <button
+              onClick={onToggleCurtain}
+              title={isCurtainOpen ? "Hide Solution Curtain" : "Solution Reveal Curtain"}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isCurtainOpen ? "text-cyan-300 bg-cyan-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Focus Spotlight */}
+          {onToggleSpotlight && (
+            <button
+              onClick={onToggleSpotlight}
+              title={isSpotlightActive ? "Turn Off Spotlight (Shift+K)" : "Focus Spotlight Beam (Shift+K)"}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isSpotlightActive ? "text-amber-300 bg-amber-500/25 animate-pulse" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+              }`}
+            >
+              <Radio className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

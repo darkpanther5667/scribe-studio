@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Plus,
   Trash2,
   Copy,
@@ -18,6 +20,7 @@ interface SlideTrayProps {
   onAddBlankSlide: () => void;
   onDuplicateSlide: () => void;
   onDeleteSlide: () => void;
+  onReorderSlide?: (fromIndex: number, toIndex: number) => void;
   onFitToScreen?: () => void;
 }
 
@@ -28,6 +31,7 @@ export const SlideTray: React.FC<SlideTrayProps> = ({
   onAddBlankSlide,
   onDuplicateSlide,
   onDeleteSlide,
+  onReorderSlide,
   onFitToScreen,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -147,10 +151,38 @@ export const SlideTray: React.FC<SlideTrayProps> = ({
                     </span>
                   </div>
 
-                  {/* Slide number badge */}
-                  <span className={`ml-auto text-[10px] font-mono shrink-0 tabular-nums ${isActive ? "text-sky-400" : "text-zinc-600"}`}>
-                    {idx + 1}
-                  </span>
+                  {/* Slide number badge & Reorder controls */}
+                  <div className="ml-auto flex items-center gap-1 shrink-0">
+                    {onReorderSlide && totalSlides > 1 && (
+                      <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          disabled={idx === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onReorderSlide(idx, idx - 1);
+                          }}
+                          title="Move Slide Up"
+                          className="p-0.5 text-zinc-400 hover:text-white disabled:opacity-20 transition-colors"
+                        >
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          disabled={idx === totalSlides - 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onReorderSlide(idx, idx + 1);
+                          }}
+                          title="Move Slide Down"
+                          className="p-0.5 text-zinc-400 hover:text-white disabled:opacity-20 transition-colors"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                    <span className={`text-[10px] font-mono tabular-nums ${isActive ? "text-sky-400" : "text-zinc-600"}`}>
+                      {idx + 1}
+                    </span>
+                  </div>
                 </button>
               );
             })}
