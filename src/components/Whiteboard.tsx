@@ -74,7 +74,7 @@ import {
   type CloudDrawingRecord,
 } from "../lib/supabase";
 import type { User } from "@supabase/supabase-js";
-import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon } from "lucide-react";
+import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon, Type } from "lucide-react";
 import { ClassroomTimer } from "./ClassroomTimer";
 import { PresentationCurtain } from "./PresentationCurtain";
 import { VirtualRuler, type RulerState } from "./VirtualRuler";
@@ -419,14 +419,27 @@ export const Whiteboard: React.FC = () => {
 
   // ── Robust Inline Text Editor Modal ─────────────────────────────────────────
   const [textEditor, setTextEditor] = useState<{
-    screenX: number;
-    screenY: number;
     worldX: number;
     worldY: number;
     text: string;
     isNote?: boolean;
+    editingId?: string;
   } | null>(null);
   const textEditorRef = useRef<HTMLTextAreaElement>(null);
+
+  // Reliable auto-focus whenever text editor opens or edits
+  useEffect(() => {
+    if (textEditor) {
+      const timer = setTimeout(() => {
+        if (textEditorRef.current) {
+          textEditorRef.current.focus();
+          textEditorRef.current.selectionStart = textEditorRef.current.value.length;
+          textEditorRef.current.selectionEnd = textEditorRef.current.value.length;
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [textEditor?.editingId, Boolean(textEditor)]);
 
   // ── History & Undo/Redo Action Stacks ────────────────────────────────────────
   const [undoStack, setUndoStack] = useState<BoardSnapshot[]>([]);
@@ -2510,37 +2523,78 @@ export const Whiteboard: React.FC = () => {
 
         if (textEditor.isNote) {
           // Commit Sticky Note
-          const newNote: StickyNote = {
-            id: crypto.randomUUID(),
-            text: trimmed,
-            x: textEditor.worldX,
-            y: textEditor.worldY,
-            width: 200,
-            height: 160,
-            color: "#fef08a", // Soft sunshine yellow post-it
-          };
-          const next = [...notesRef.current, newNote];
-          notesRef.current = next;
-          setNotes(next);
+          if (textEditor.editingId) {
+            const next = notesRef.current.map((n) =>
+              n.id === textEditor.editingId ? { ...n, text: trimmed } : n
+            );
+            notesRef.current = next;
+            setNotes(next);
+          } else {
+            const newNote: StickyNote = {
+              id: crypto.randomUUID(),
+              text: trimmed,
+              x: textEditor.worldX,
+              y: textEditor.worldY,
+              width: 200,
+              height: 160,
+              color: "#fef08a", // Soft sunshine yellow post-it
+            };
+            const next = [...notesRef.current, newNote];
+            notesRef.current = next;
+            setNotes(next);
+          }
         } else {
           // Commit Typed Text
           const fontSize =
-            strokeWidthRef.current === "thin"
+            strokeWidthRef.current === "ultrathin"
+              ? 14
+              : strokeWidthRef.current === "thin"
               ? 18
               : strokeWidthRef.current === "medium"
-              ? 26
-              : 36;
+              ? 24
+              : strokeWidthRef.current === "thick"
+              ? 32
+              : 44;
 
-          const newText: TextItem = {
-            id: crypto.randomUUID(),
-            text: trimmed,
-            x: textEditor.worldX,
-            y: textEditor.worldY,
-            color: colorRef.current,
-            fontSize,
-            fontStyle: textFontStyleRef.current,
-          };
-          const next = [...textsRef.current, newText];
+          if (textEditor.editingId) {
+            const next = textsRef.current.map((t) =>
+              t.id === textEditor.editingId
+                ? {
+                    ...t,
+                    text: trimmed,
+                    color: colorRef.current,
+                    fontSize,
+                    fontStyle: textFontStyleRef.current,
+                  }
+                : t
+            );
+            textsRef.current = next;
+            setTexts(next);
+          } else {
+            const newText: TextItem = {
+              id: crypto.randomUUID(),
+              text: trimmed,
+              x: textEditor.worldX,
+              y: textEditor.worldY,
+              color: colorRef.current,
+              fontSize,
+              fontStyle: textFontStyleRef.current,
+            };
+            const next = [...textsRef.current, newText];
+            textsRef.current = next;
+            setTexts(next);
+          }
+        }
+      } else if (textEditor.editingId) {
+        // Empty text on existing item removes it
+        setUndoStack((u) => [...u, takeSnapshot()]);
+        setRedoStack([]);
+        if (textEditor.isNote) {
+          const next = notesRef.current.filter((n) => n.id !== textEditor.editingId);
+          notesRef.current = next;
+          setNotes(next);
+        } else {
+          const next = textsRef.current.filter((t) => t.id !== textEditor.editingId);
           textsRef.current = next;
           setTexts(next);
         }
@@ -2613,14 +2667,43 @@ export const Whiteboard: React.FC = () => {
       // If text editor is already open, commit it when clicking elsewhere
       if (textEditor) {
         commitTextEditor();
-        return;
+        if (modeRef.current !== "text" && modeRef.current !== "note") {
+          return;
+        }
       }
 
       // Handle Text / Note placement WITHOUT capturing pointer!
       if (modeRef.current === "text") {
+        // Check if user clicked an existing text item to edit it
+        const hitText = textsRef.current.slice().reverse().find((t) => {
+          const fs = t.fontSize || 20;
+          const lines = t.text.split("\n");
+          const lineH = t.fontStyle === "handwriting" ? fs * 1.2 : fs * 1.3;
+          const maxLineLen = Math.max(...lines.map((l) => l.length), 1);
+          const w = Math.max(maxLineLen * fs * 0.65, 40);
+          const h = Math.max(lines.length * lineH, fs * 1.2);
+          return (
+            worldPoint.x >= t.x - 10 &&
+            worldPoint.x <= t.x + w + 10 &&
+            worldPoint.y >= t.y - 10 &&
+            worldPoint.y <= t.y + h + 10
+          );
+        });
+
+        if (hitText) {
+          setTextEditor({
+            worldX: hitText.x,
+            worldY: hitText.y,
+            text: hitText.text,
+            isNote: false,
+            editingId: hitText.id,
+          });
+          if (hitText.fontStyle) setFontStyle(hitText.fontStyle);
+          if (hitText.color) setColor(hitText.color);
+          return;
+        }
+
         setTextEditor({
-          screenX,
-          screenY,
           worldX: worldPoint.x,
           worldY: worldPoint.y,
           text: "",
@@ -2630,9 +2713,27 @@ export const Whiteboard: React.FC = () => {
       }
 
       if (modeRef.current === "note") {
+        const hitNote = notesRef.current.slice().reverse().find((n) => {
+          return (
+            worldPoint.x >= n.x &&
+            worldPoint.x <= n.x + n.width &&
+            worldPoint.y >= n.y &&
+            worldPoint.y <= n.y + n.height
+          );
+        });
+
+        if (hitNote) {
+          setTextEditor({
+            worldX: hitNote.x,
+            worldY: hitNote.y,
+            text: hitNote.text,
+            isNote: true,
+            editingId: hitNote.id,
+          });
+          return;
+        }
+
         setTextEditor({
-          screenX,
-          screenY,
           worldX: worldPoint.x,
           worldY: worldPoint.y,
           text: "",
@@ -3820,8 +3921,8 @@ export const Whiteboard: React.FC = () => {
           <div
             className="fixed z-50 p-3 rounded-2xl shadow-2xl border border-amber-400/80 flex flex-col gap-2 backdrop-blur-xl bg-amber-100/95 animate-in fade-in duration-100"
             style={{
-              left: textEditor.screenX,
-              top: textEditor.screenY,
+              left: `${textEditor.worldX * camera.zoom + camera.x}px`,
+              top: `${textEditor.worldY * camera.zoom + camera.y}px`,
               minWidth: "220px",
             }}
             onPointerDown={(e) => e.stopPropagation()}
@@ -3860,30 +3961,58 @@ export const Whiteboard: React.FC = () => {
             />
             <div className="flex items-center justify-end gap-2 pt-1 border-t border-amber-300">
               <button
+                type="button"
                 onClick={() => setTextEditor(null)}
-                className="px-2.5 py-1 rounded-lg text-xs font-medium text-amber-900 hover:bg-black/10 transition-all"
+                className="px-2.5 py-1 rounded-lg text-xs font-medium text-amber-900 hover:bg-black/10 transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => commitTextEditor(textEditor.text)}
-                className="px-3 py-1 rounded-lg text-xs font-bold shadow-md bg-amber-500 hover:bg-amber-600 text-amber-950 transition-all active:scale-95"
+                className="px-3 py-1 rounded-lg text-xs font-bold shadow-md bg-amber-500 hover:bg-amber-600 text-amber-950 transition-all active:scale-95 cursor-pointer"
               >
-                Done
+                Done ✓
               </button>
             </div>
           </div>
         ) : (
-          /* Seamless Canvas-Direct Inline Text Input (No Box!) */
+          /* Clean, High-Contrast Floating Text Editor Card */
           <div
-            className="fixed z-50 animate-in fade-in duration-75 flex flex-col items-start select-text"
+            className="fixed z-50 animate-in fade-in duration-75 flex flex-col items-start select-text p-2.5 rounded-2xl bg-zinc-950/95 backdrop-blur-2xl border border-sky-400/50 shadow-2xl shadow-black/80 ring-1 ring-white/10"
             style={{
-              left: textEditor.screenX,
-              top: textEditor.screenY,
+              left: `${textEditor.worldX * camera.zoom + camera.x}px`,
+              top: `${textEditor.worldY * camera.zoom + camera.y}px`,
+              maxWidth: "min(600px, 90vw)",
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="flex items-center justify-between w-full pb-1.5 mb-1.5 border-b border-white/10 gap-3">
+              <span className="text-[11px] font-mono text-zinc-300 font-bold tracking-tight flex items-center gap-1.5">
+                <Type className="w-3.5 h-3.5 text-sky-400" />
+                <span>{textEditor.editingId ? "Edit Board Text" : "Add Text"}</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setFontStyle((prev) => (prev === "handwriting" ? "normal" : "handwriting"))}
+                  className="px-2 py-0.5 rounded-lg text-[10px] font-mono bg-white/10 hover:bg-white/20 text-zinc-200 transition-all cursor-pointer"
+                  title="Toggle font style: Handwriting vs Clean Sans"
+                >
+                  {fontStyle === "handwriting" ? "✍️ Handwriting" : "🔤 Sans"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTextEditor(null)}
+                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all text-xs cursor-pointer"
+                  title="Cancel (Esc)"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
             <textarea
               ref={textEditorRef}
               autoFocus
@@ -3891,9 +4020,6 @@ export const Whiteboard: React.FC = () => {
               onChange={(e) =>
                 setTextEditor((prev) => (prev ? { ...prev, text: e.target.value } : null))
               }
-              onBlur={() => {
-                commitTextEditor(textEditor.text);
-              }}
               onKeyDown={(e) => {
                 e.stopPropagation();
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -3905,41 +4031,43 @@ export const Whiteboard: React.FC = () => {
                   setTextEditor(null);
                 }
               }}
-              placeholder="Type directly on canvas..."
+              placeholder="Type notes, formulas, or labels..."
               rows={Math.max(1, textEditor.text.split("\n").length)}
-              className="
-                outline-none bg-transparent p-0 m-0 resize-none border-b border-dashed border-sky-400/50
-                focus:border-sky-400 transition-colors
-              "
+              className="outline-none bg-transparent p-1 m-0 resize-none w-full border-b border-white/10 focus:border-sky-400 transition-colors"
               style={{
                 color: color,
                 fontFamily:
                   fontStyle === "handwriting"
                     ? "'Caveat', cursive"
                     : "'Inter', system-ui, -apple-system, sans-serif",
-                fontSize: `${(strokeWidthRef.current === "thin" ? 18 : strokeWidthRef.current === "medium" ? 26 : 36) * camera.zoom}px`,
-                lineHeight: fontStyle === "handwriting" ? 1.2 : 1.3,
+                fontSize: `${Math.max(16, (strokeWidth === "ultrathin" ? 14 : strokeWidth === "thin" ? 18 : strokeWidth === "medium" ? 24 : strokeWidth === "thick" ? 32 : 44) * camera.zoom)}px`,
+                lineHeight: fontStyle === "handwriting" ? 1.25 : 1.35,
                 fontWeight: 600,
-                minWidth: "160px",
-                width: `${Math.max(180, (textEditor.text.length + 3) * (strokeWidthRef.current === "thin" ? 12 : strokeWidthRef.current === "medium" ? 16 : 22) * camera.zoom)}px`,
+                minWidth: "240px",
+                width: `${Math.max(240, (textEditor.text.length + 4) * (strokeWidth === "thin" ? 12 : 16) * camera.zoom)}px`,
               }}
             />
-            {/* Subtle floating helper pill */}
-            <div className="flex items-center gap-2 mt-1.5 px-2.5 py-0.5 rounded-full bg-zinc-950/85 backdrop-blur-md border border-white/10 text-[10px] text-zinc-400 select-none shadow-lg">
-              <span className="text-zinc-300">↵ Save to board</span>
-              <span>•</span>
-              <span>Shift+↵ New line</span>
-              <span>•</span>
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setFontStyle((prev) => (prev === "handwriting" ? "normal" : "handwriting"));
-                }}
-                className="text-sky-300 hover:text-sky-200 font-semibold"
-              >
-                {fontStyle === "handwriting" ? "✍️ Handwriting" : "🔤 Print"}
-              </button>
+
+            <div className="flex items-center justify-between w-full pt-2 mt-1.5 border-t border-white/10 gap-3">
+              <span className="text-[10px] text-zinc-400 font-mono">
+                Enter ↵ to save • Shift+Enter new line
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setTextEditor(null)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => commitTextEditor(textEditor.text)}
+                  className="px-3.5 py-1 rounded-lg text-xs font-bold shadow-md bg-sky-500 hover:bg-sky-400 text-white transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
+                >
+                  Done ✓
+                </button>
+              </div>
             </div>
           </div>
         )
