@@ -629,10 +629,59 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               >
                 <span
                   className="rounded-full bg-zinc-300 border border-white/40"
-                  style={{ width: size * 1.5, height: size * 1.5 }}
+                  style={{ width: size * 1.4, height: size * 1.4 }}
                 />
               </button>
             ))}
+          </div>
+        ) : mode === "text" ? (
+          /* Text Styling (Font & Colors) */
+          <div className="flex flex-row items-center gap-1.5">
+            {/* Font Style Toggle */}
+            {onFontStyleChange && (
+              <button
+                onClick={() => onFontStyleChange(fontStyle === "handwriting" ? "normal" : "handwriting")}
+                title="Toggle Font: Handwriting (Caveat) vs Sans (Inter)"
+                className={`
+                  flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs border transition-all duration-150 active:scale-95
+                  ${
+                    fontStyle === "handwriting"
+                      ? "bg-purple-500/25 text-purple-200 border-purple-400/40 font-bold"
+                      : "bg-white/[0.05] text-zinc-300 border-white/5 hover:text-white"
+                  }
+                `}
+              >
+                <span style={{ fontFamily: fontStyle === "handwriting" ? "'Caveat', cursive" : "'Inter', sans-serif", fontSize: fontStyle === "handwriting" ? "13px" : "11px" }}>
+                  {fontStyle === "handwriting" ? "✍️ Caveat" : "🔤 Inter"}
+                </span>
+              </button>
+            )}
+
+            {/* Quick Colors */}
+            <div className="flex flex-row items-center gap-1 bg-white/[0.03] p-0.5 rounded-xl border border-white/5">
+              {ACTIVE_PALETTE.slice(0, 5).map(({ value, label, glow }) => (
+                <button
+                  key={value}
+                  title={label}
+                  onClick={() => onColorChange(value)}
+                  className={`
+                    w-5 h-5 rounded-full transition-transform duration-150 relative
+                    ${color === value ? `scale-110 ring-2 ring-white ${glow}` : "opacity-80 hover:opacity-100 hover:scale-105"}
+                  `}
+                  style={{ backgroundColor: value }}
+                />
+              ))}
+              {onOpenColorPicker && (
+                <button
+                  type="button"
+                  onClick={onOpenColorPicker}
+                  className="w-5 h-5 rounded-full border flex items-center justify-center transition-all hover:scale-110 active:scale-95 border-white/20 text-zinc-300 hover:text-white bg-white/[0.05]"
+                  title="Open Color Studio"
+                >
+                  <Palette className="w-2.5 h-2.5 text-sky-400" />
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           /* Inking / Shapes Colors, Tips, and Stroke Styles */
@@ -673,7 +722,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   title={label}
                   onClick={() => onWidthChange(value)}
                   className={`
-                    flex items-center justify-center w-6 h-6 rounded-lg transition-all duration-150
+                    flex items-center justify-center w-5 h-5 rounded-lg transition-all duration-150
                     ${
                       strokeWidth === value
                         ? "bg-white/25 text-white ring-1 ring-white/40"
@@ -689,96 +738,72 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               ))}
             </div>
 
-            {/* Line Style Toggle (when in pen or shape mode) */}
-            {(isShapeActive || mode === "draw") && (
-              <button
-                onClick={cycleLineStyle}
-                title="Cycle Line Style: Solid, Dashed, Dotted"
-                className="
-                  flex items-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-mono text-zinc-300
-                  bg-white/[0.05] hover:bg-white/[0.12] hover:text-white border border-white/5
-                  transition-all duration-150 active:scale-95
-                "
-              >
-                {lineStyle === "solid" && (
-                  <svg className="w-6 h-3" viewBox="0 0 24 12">
-                    <line x1="2" y1="6" x2="22" y2="6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                  </svg>
-                )}
-                {lineStyle === "dashed" && (
-                  <svg className="w-6 h-3" viewBox="0 0 24 12">
-                    <line x1="2" y1="6" x2="22" y2="6" stroke="currentColor" strokeWidth="2.5" strokeDasharray="5, 3" strokeLinecap="round" />
-                  </svg>
-                )}
-                {lineStyle === "dotted" && (
-                  <svg className="w-6 h-3" viewBox="0 0 24 12">
-                    <line x1="2" y1="6" x2="22" y2="6" stroke="currentColor" strokeWidth="2.5" strokeDasharray="1, 4" strokeLinecap="round" />
-                  </svg>
-                )}
-                <span className="hidden sm:inline capitalize">{lineStyle}</span>
-              </button>
-            )}
+            {/* Stroke Modifiers (Line Style, Smart Snap, Shape Fill) */}
+            <div className="flex items-center gap-0.5 bg-white/[0.03] p-0.5 rounded-xl border border-white/5">
+              {/* Line Style Toggle */}
+              {(isShapeActive || mode === "draw") && (
+                <button
+                  onClick={cycleLineStyle}
+                  title={`Line Style: ${lineStyle} (Click to cycle Solid, Dashed, Dotted)`}
+                  className={`
+                    p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all duration-150 active:scale-90
+                    ${lineStyle !== "solid" ? "bg-white/15 text-white shadow-sm" : ""}
+                  `}
+                >
+                  {lineStyle === "solid" && (
+                    <svg className="w-5 h-2.5" viewBox="0 0 20 10">
+                      <line x1="2" y1="5" x2="18" y2="5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  {lineStyle === "dashed" && (
+                    <svg className="w-5 h-2.5" viewBox="0 0 20 10">
+                      <line x1="2" y1="5" x2="18" y2="5" stroke="currentColor" strokeWidth="2.5" strokeDasharray="4, 2.5" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  {lineStyle === "dotted" && (
+                    <svg className="w-5 h-2.5" viewBox="0 0 20 10">
+                      <line x1="2" y1="5" x2="18" y2="5" stroke="currentColor" strokeWidth="2.5" strokeDasharray="1, 3" strokeLinecap="round" />
+                    </svg>
+                  )}
+                </button>
+              )}
 
-            {/* Smart Snap Auto-Shape Toggle (in Pen Mode) */}
-            {mode === "draw" && onToggleSmartSnap && (
-              <button
-                onClick={onToggleSmartSnap}
-                title="Draw-and-Hold Smart Ink (Alt+S) — Hold pen still 400ms to snap into geometric lines, arrows, circles, or boxes"
-                className={`
-                  flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-[11px] font-mono border transition-all duration-150 active:scale-95
-                  ${
-                    smartSnapEnabled
-                      ? "bg-amber-400/20 text-amber-300 border-amber-400/40 shadow-sm shadow-amber-400/20 font-bold"
-                      : "bg-white/[0.05] text-zinc-400 border-white/5 hover:text-white"
-                  }
-                `}
-              >
-                <Sparkles className={`w-3.5 h-3.5 ${smartSnapEnabled ? "text-amber-300 animate-pulse" : "text-zinc-500"}`} />
-                <span className="hidden sm:inline">Smart Snap</span>
-                <span className={`text-[9px] font-mono px-1 rounded ${smartSnapEnabled ? "bg-amber-400/30 text-amber-200" : "opacity-50"}`}>
-                  {smartSnapEnabled ? "ON" : "OFF"}
-                </span>
-              </button>
-            )}
+              {/* Smart Snap Auto-Shape Toggle */}
+              {mode === "draw" && onToggleSmartSnap && (
+                <button
+                  onClick={onToggleSmartSnap}
+                  title={`Draw-and-Hold Smart Snap (Alt+S): ${smartSnapEnabled ? "Enabled" : "Disabled"}`}
+                  className={`
+                    p-1.5 rounded-lg transition-all duration-150 active:scale-90
+                    ${
+                      smartSnapEnabled
+                        ? "bg-amber-400/25 text-amber-300 border border-amber-400/40 shadow-sm"
+                        : "text-zinc-400 hover:text-white hover:bg-white/10"
+                    }
+                  `}
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${smartSnapEnabled ? "text-amber-300 animate-pulse" : "text-zinc-400"}`} />
+                </button>
+              )}
 
-            {/* Font Style Toggle (when in Text Mode) */}
-            {mode === "text" && onFontStyleChange && (
-              <button
-                onClick={() => onFontStyleChange(fontStyle === "handwriting" ? "normal" : "handwriting")}
-                title="Toggle Font: Handwriting (Caveat) vs Sans (Inter)"
-                className={`
-                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs border transition-all duration-150 active:scale-95
-                  ${
-                    fontStyle === "handwriting"
-                      ? "bg-purple-500/25 text-purple-200 border-purple-400/40 font-bold"
-                      : "bg-white/[0.05] text-zinc-300 border-white/5 hover:text-white"
-                  }
-                `}
-              >
-                <span style={{ fontFamily: fontStyle === "handwriting" ? "'Caveat', cursive" : "'Inter', sans-serif", fontSize: fontStyle === "handwriting" ? "14px" : "11px" }}>
-                  {fontStyle === "handwriting" ? "✍️ Handwriting" : "🔤 Clean Sans"}
-                </span>
-              </button>
-            )}
-
-            {/* Shape Fill Toggle (only when shape active) */}
-            {isShapeActive && (
-              <button
-                onClick={() => onFillStyleChange(fillStyle === "none" ? "semi" : "none")}
-                title="Toggle Shape Fill: Outline vs Tinted Shade"
-                className={`
-                  flex items-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-mono border transition-all duration-150 active:scale-95
-                  ${
-                    fillStyle === "semi"
-                      ? "bg-sky-500/25 text-sky-200 border-sky-400/40"
-                      : "bg-white/[0.05] text-zinc-400 border-white/5 hover:text-white"
-                  }
-                `}
-              >
-                <Square className={`w-3.5 h-3.5 ${fillStyle === "semi" ? "fill-sky-400/40" : ""}`} />
-                <span>{fillStyle === "semi" ? "Tinted Fill" : "Outline"}</span>
-              </button>
-            )}
+              {/* Shape Fill Toggle (when shape active) */}
+              {isShapeActive && (
+                <button
+                  onClick={() => onFillStyleChange(fillStyle === "none" ? "semi" : "none")}
+                  title={`Shape Fill: ${fillStyle === "semi" ? "Tinted Fill" : "Outline"}`}
+                  className={`
+                    p-1.5 rounded-lg transition-all duration-150 active:scale-90
+                    ${
+                      fillStyle === "semi"
+                        ? "bg-sky-500/25 text-sky-200 border border-sky-400/40"
+                        : "text-zinc-400 hover:text-white hover:bg-white/10"
+                    }
+                  `}
+                >
+                  <Square className={`w-3.5 h-3.5 ${fillStyle === "semi" ? "fill-sky-400/50" : ""}`} />
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

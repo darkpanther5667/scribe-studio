@@ -92,7 +92,7 @@ interface HeaderBarProps {
   isSplitScreenActive?: boolean;
 }
 
-type DropdownMenu = "file" | "export" | "profile" | "template" | null;
+type DropdownMenu = "file" | "export" | "profile" | "template" | "studio" | "teaching" | null;
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   onNewNotebook,
@@ -147,6 +147,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [tempTitle, setTempTitle] = useState(title);
   const [confirmClear, setConfirmClear] = useState(false);
   const [openMenu, setOpenMenu] = useState<DropdownMenu>(null);
+
+  // Active tools telemetry
+  const activeStudioCount = [
+    isFacecamOpen,
+    isPollOpen,
+    isSplitScreenActive,
+    isStemBarOpen,
+  ].filter(Boolean).length;
+
+  const activeTeachingCount = [
+    isTimerOpen,
+    isRulerActive,
+    isCurtainOpen,
+    isSpotlightActive,
+  ].filter(Boolean).length;
 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -776,121 +791,477 @@ const THEME_OPTIONS: {
           )}
         </div>
 
-        {/* ── Educator Studio Superpowers Dock ── */}
-        <div className="hidden lg:flex items-center p-0.5 rounded-xl bg-white/[0.03] border border-white/5 gap-0.5">
-          {/* Classroom Timer */}
-          {onToggleTimer && (
+        {/* ── Capsule 3: Live Broadcast Studio (Unacademy Suite) ── */}
+        <div className="relative">
+          <div className="flex items-center p-0.5 rounded-xl bg-white/[0.03] border border-white/5">
             <button
-              onClick={onToggleTimer}
-              title={isTimerOpen ? "Close Classroom Timer" : "Classroom Timer & Stopwatch"}
-              className={`p-1.5 rounded-lg transition-colors ${
-                isTimerOpen ? "text-amber-300 bg-amber-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
-              }`}
+              onClick={() => setOpenMenu(openMenu === "studio" ? null : "studio")}
+              title="Educator Broadcast Studio (Facecam, Poll, Split-Screen, STEM Bar)"
+              className={`
+                flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold
+                transition-all duration-150 active:scale-95
+                ${
+                  activeStudioCount > 0
+                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-sm shadow-rose-500/20"
+                    : openMenu === "studio"
+                    ? "bg-white/15 text-white"
+                    : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                }
+              `}
             >
-              <Clock className="w-3.5 h-3.5" />
+              <Camera className={`w-3.5 h-3.5 ${activeStudioCount > 0 ? "text-rose-400 animate-pulse" : "text-zinc-400"}`} />
+              <span className="hidden sm:inline">Studio</span>
+              {activeStudioCount > 0 && (
+                <span className="flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm">
+                  {activeStudioCount}
+                </span>
+              )}
+              <ChevronDown className="w-3 h-3 text-zinc-500" />
             </button>
-          )}
 
-          {/* Virtual Straightedge Ruler */}
-          {onToggleRuler && (
-            <button
-              onClick={onToggleRuler}
-              title={isRulerActive ? "Hide Virtual Ruler (R)" : "Virtual Straightedge Ruler (R)"}
-              className={`p-1.5 rounded-lg transition-colors ${
-                isRulerActive ? "text-sky-300 bg-sky-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
-              }`}
-            >
-              <Ruler className="w-3.5 h-3.5" />
-            </button>
-          )}
+            {/* Quick 1-click icons for power users on wide screens */}
+            <div className="hidden 2xl:flex items-center gap-0.5 pl-1 ml-1 border-l border-white/10">
+              {onToggleFacecam && (
+                <button
+                  onClick={onToggleFacecam}
+                  title={isFacecamOpen ? "Turn Off Facecam (Alt+C)" : "Educator Facecam PiP (Alt+C)"}
+                  className={`p-1 rounded-lg transition-colors ${
+                    isFacecamOpen ? "text-rose-300 bg-rose-500/25" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Camera className="w-3 h-3" />
+                </button>
+              )}
+              {onTogglePoll && (
+                <button
+                  onClick={onTogglePoll}
+                  title={isPollOpen ? "Close Live Poll (Alt+Q)" : "Live MCQ Poll & Quiz Cards (Alt+Q)"}
+                  className={`p-1 rounded-lg transition-colors ${
+                    isPollOpen ? "text-amber-300 bg-amber-500/25" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Trophy className="w-3 h-3" />
+                </button>
+              )}
+              {onToggleSplitScreen && (
+                <button
+                  onClick={onToggleSplitScreen}
+                  title={isSplitScreenActive ? "Exit Split Screen Mode (Alt+D)" : "Split-Screen Problem Layout (Alt+D)"}
+                  className={`p-1 rounded-lg transition-colors ${
+                    isSplitScreenActive ? "text-cyan-300 bg-cyan-500/25" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Columns className="w-3 h-3" />
+                </button>
+              )}
+              {onToggleStemBar && (
+                <button
+                  onClick={onToggleStemBar}
+                  title={isStemBarOpen ? "Close STEM Symbol Bar (Alt+M)" : "1-Click STEM Science Bar (Alt+M)"}
+                  className={`p-1 rounded-lg transition-colors ${
+                    isStemBarOpen ? "text-sky-300 bg-sky-500/25" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Atom className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
 
-          {/* Function Plotter */}
-          {onOpenPlotter && (
-            <button
-              onClick={onOpenPlotter}
-              title="Mathematical Function Plotter (y = f(x))"
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors"
+          {/* Studio Popover Menu */}
+          {openMenu === "studio" && (
+            <div
+              className="
+                absolute left-0 top-full mt-2 w-72 p-2 rounded-2xl
+                bg-zinc-950/95 backdrop-blur-2xl border border-white/10
+                shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-1 text-xs
+                animate-in fade-in zoom-in-95 duration-100
+              "
             >
-              <Activity className="w-3.5 h-3.5" />
-            </button>
-          )}
+              <div className="flex items-center justify-between px-2 py-1 border-b border-white/10 mb-0.5">
+                <span className="text-[10px] font-bold tracking-wider text-rose-400 uppercase">
+                  Broadcast Studio
+                </span>
+                <span className="text-[9px] font-mono text-zinc-500">Unacademy Suite</span>
+              </div>
 
-          {/* Solution Reveal Curtain */}
-          {onToggleCurtain && (
-            <button
-              onClick={onToggleCurtain}
-              title={isCurtainOpen ? "Hide Solution Curtain" : "Solution Reveal Curtain"}
-              className={`p-1.5 rounded-lg transition-colors ${
-                isCurtainOpen ? "text-cyan-300 bg-cyan-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" />
-            </button>
-          )}
+              {/* 1. Educator Facecam */}
+              {onToggleFacecam && (
+                <button
+                  onClick={() => {
+                    onToggleFacecam();
+                    setOpenMenu(null);
+                  }}
+                  className={`
+                    flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all text-left
+                    ${
+                      isFacecamOpen
+                        ? "bg-rose-500/20 text-white border border-rose-500/30"
+                        : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${isFacecamOpen ? "bg-rose-500 text-white" : "bg-white/5 text-rose-400"}`}>
+                      <Camera className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">Educator Facecam (PiP)</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Webcam with corner snap & mirror</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-zinc-500 bg-white/5 px-1 py-0.5 rounded">Alt+C</span>
+                    {isFacecamOpen && <span className="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />}
+                  </div>
+                </button>
+              )}
 
-          {/* Focus Spotlight */}
-          {onToggleSpotlight && (
-            <button
-              onClick={onToggleSpotlight}
-              title={isSpotlightActive ? "Turn Off Spotlight (Shift+K)" : "Focus Spotlight Beam (Shift+K)"}
-              className={`p-1.5 rounded-lg transition-colors ${
-                isSpotlightActive ? "text-amber-300 bg-amber-500/25 animate-pulse" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
-              }`}
-            >
-              <Radio className="w-3.5 h-3.5" />
-            </button>
-          )}
+              {/* 2. Classroom MCQ Poll */}
+              {onTogglePoll && (
+                <button
+                  onClick={() => {
+                    onTogglePoll();
+                    setOpenMenu(null);
+                  }}
+                  className={`
+                    flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all text-left
+                    ${
+                      isPollOpen
+                        ? "bg-amber-500/20 text-white border border-amber-500/30"
+                        : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${isPollOpen ? "bg-amber-500 text-zinc-950 font-bold" : "bg-white/5 text-amber-400"}`}>
+                      <Trophy className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">Live Classroom MCQ Poll</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Options A/B/C/D & victory chime</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-zinc-500 bg-white/5 px-1 py-0.5 rounded">Alt+Q</span>
+                    {isPollOpen && <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />}
+                  </div>
+                </button>
+              )}
 
-          {/* Educator Facecam PiP (Unacademy style) */}
-          {onToggleFacecam && (
-            <button
-              onClick={onToggleFacecam}
-              title={isFacecamOpen ? "Turn Off Facecam (Alt+C)" : "Educator Facecam PiP (Alt+C)"}
-              className={`p-1.5 rounded-lg transition-colors ${
-                isFacecamOpen ? "text-red-400 bg-red-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
-              }`}
-            >
-              <Camera className="w-3.5 h-3.5" />
-            </button>
-          )}
+              {/* 3. Split-Screen Dual Mode */}
+              {onToggleSplitScreen && (
+                <button
+                  onClick={() => {
+                    onToggleSplitScreen();
+                    setOpenMenu(null);
+                  }}
+                  className={`
+                    flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all text-left
+                    ${
+                      isSplitScreenActive
+                        ? "bg-cyan-500/20 text-white border border-cyan-500/30"
+                        : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${isSplitScreenActive ? "bg-cyan-500 text-zinc-950 font-bold" : "bg-white/5 text-cyan-400"}`}>
+                      <Columns className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">Split-Screen Dual Mode</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">40% Question / 60% Board solve</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-zinc-500 bg-white/5 px-1 py-0.5 rounded">Alt+D</span>
+                    {isSplitScreenActive && <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />}
+                  </div>
+                </button>
+              )}
 
-          {/* Live MCQ Poll & Quiz Cards */}
-          {onTogglePoll && (
-            <button
-              onClick={onTogglePoll}
-              title={isPollOpen ? "Close Live Poll (Alt+Q)" : "Live MCQ Poll & Quiz Cards (Alt+Q)"}
-              className={`p-1.5 rounded-lg transition-colors ${
-                isPollOpen ? "text-amber-300 bg-amber-500/25 font-bold" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
-              }`}
-            >
-              <Trophy className="w-3.5 h-3.5" />
-            </button>
+              {/* 4. STEM Symbol Bar */}
+              {onToggleStemBar && (
+                <button
+                  onClick={() => {
+                    onToggleStemBar();
+                    setOpenMenu(null);
+                  }}
+                  className={`
+                    flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all text-left
+                    ${
+                      isStemBarOpen
+                        ? "bg-sky-500/20 text-white border border-sky-500/30"
+                        : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${isStemBarOpen ? "bg-sky-500 text-white" : "bg-white/5 text-sky-400"}`}>
+                      <Atom className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">1-Click STEM Symbol Bar</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Calculus, Physics, Vectors & Chem</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-zinc-500 bg-white/5 px-1 py-0.5 rounded">Alt+M</span>
+                    {isStemBarOpen && <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)]" />}
+                  </div>
+                </button>
+              )}
+            </div>
           )}
+        </div>
 
-          {/* STEM Science & Math Quick-Bar */}
-          {onToggleStemBar && (
+        {/* ── Capsule 4: Classroom Teaching Tools ── */}
+        <div className="relative">
+          <div className="flex items-center p-0.5 rounded-xl bg-white/[0.03] border border-white/5">
             <button
-              onClick={onToggleStemBar}
-              title={isStemBarOpen ? "Close STEM Symbol Bar" : "1-Click STEM Science Bar"}
-              className={`p-1.5 rounded-lg transition-colors ${
-                isStemBarOpen ? "text-sky-300 bg-sky-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
-              }`}
+              onClick={() => setOpenMenu(openMenu === "teaching" ? null : "teaching")}
+              title="Classroom Teaching Tools (Timer, Ruler, Plotter, Curtain, Spotlight)"
+              className={`
+                flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold
+                transition-all duration-150 active:scale-95
+                ${
+                  activeTeachingCount > 0
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm shadow-amber-500/20"
+                    : openMenu === "teaching"
+                    ? "bg-white/15 text-white"
+                    : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                }
+              `}
             >
-              <Atom className="w-3.5 h-3.5" />
+              <Clock className={`w-3.5 h-3.5 ${activeTeachingCount > 0 ? "text-amber-400 animate-pulse" : "text-zinc-400"}`} />
+              <span className="hidden sm:inline">Tools</span>
+              {activeTeachingCount > 0 && (
+                <span className="flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-amber-500 text-[9px] font-bold text-zinc-950 shadow-sm">
+                  {activeTeachingCount}
+                </span>
+              )}
+              <ChevronDown className="w-3 h-3 text-zinc-500" />
             </button>
-          )}
 
-          {/* Split-Screen Problem-Solving Layout */}
-          {onToggleSplitScreen && (
-            <button
-              onClick={onToggleSplitScreen}
-              title={isSplitScreenActive ? "Exit Split Screen Mode" : "Split-Screen Problem Layout (40% Question / 60% Board)"}
-              className={`p-1.5 rounded-lg transition-colors ${
-                isSplitScreenActive ? "text-cyan-300 bg-cyan-500/20" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
-              }`}
+            {/* Quick 1-click icons for power users on wide screens */}
+            <div className="hidden 2xl:flex items-center gap-0.5 pl-1 ml-1 border-l border-white/10">
+              {onToggleTimer && (
+                <button
+                  onClick={onToggleTimer}
+                  title={isTimerOpen ? "Close Classroom Timer" : "Classroom Timer & Stopwatch"}
+                  className={`p-1 rounded-lg transition-colors ${
+                    isTimerOpen ? "text-amber-300 bg-amber-500/25" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Clock className="w-3 h-3" />
+                </button>
+              )}
+              {onToggleRuler && (
+                <button
+                  onClick={onToggleRuler}
+                  title={isRulerActive ? "Hide Virtual Ruler (R)" : "Virtual Straightedge Ruler (R)"}
+                  className={`p-1 rounded-lg transition-colors ${
+                    isRulerActive ? "text-sky-300 bg-sky-500/25" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Ruler className="w-3 h-3" />
+                </button>
+              )}
+              {onOpenPlotter && (
+                <button
+                  onClick={onOpenPlotter}
+                  title="Mathematical Function Plotter (y = f(x))"
+                  className="p-1 rounded-lg text-zinc-400 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors"
+                >
+                  <Activity className="w-3 h-3" />
+                </button>
+              )}
+              {onToggleCurtain && (
+                <button
+                  onClick={onToggleCurtain}
+                  title={isCurtainOpen ? "Hide Solution Curtain" : "Solution Reveal Curtain"}
+                  className={`p-1 rounded-lg transition-colors ${
+                    isCurtainOpen ? "text-cyan-300 bg-cyan-500/25" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Eye className="w-3 h-3" />
+                </button>
+              )}
+              {onToggleSpotlight && (
+                <button
+                  onClick={onToggleSpotlight}
+                  title={isSpotlightActive ? "Turn Off Spotlight (Shift+K)" : "Focus Spotlight Beam (Shift+K)"}
+                  className={`p-1 rounded-lg transition-colors ${
+                    isSpotlightActive ? "text-amber-300 bg-amber-500/25 animate-pulse" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Radio className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Teaching Tools Popover Menu */}
+          {openMenu === "teaching" && (
+            <div
+              className="
+                absolute left-0 top-full mt-2 w-72 p-2 rounded-2xl
+                bg-zinc-950/95 backdrop-blur-2xl border border-white/10
+                shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-1 text-xs
+                animate-in fade-in zoom-in-95 duration-100
+              "
             >
-              <Columns className="w-3.5 h-3.5" />
-            </button>
+              <div className="flex items-center justify-between px-2 py-1 border-b border-white/10 mb-0.5">
+                <span className="text-[10px] font-bold tracking-wider text-amber-400 uppercase">
+                  Classroom Tools
+                </span>
+                <span className="text-[9px] font-mono text-zinc-500">Pedagogical Kit</span>
+              </div>
+
+              {/* 1. Classroom Timer */}
+              {onToggleTimer && (
+                <button
+                  onClick={() => {
+                    onToggleTimer();
+                    setOpenMenu(null);
+                  }}
+                  className={`
+                    flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all text-left
+                    ${
+                      isTimerOpen
+                        ? "bg-amber-500/20 text-white border border-amber-500/30"
+                        : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${isTimerOpen ? "bg-amber-500 text-zinc-950 font-bold" : "bg-white/5 text-amber-400"}`}>
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">Classroom Timer & Stopwatch</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Quick presets & harmonic chime</div>
+                    </div>
+                  </div>
+                  {isTimerOpen && <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />}
+                </button>
+              )}
+
+              {/* 2. Virtual Ruler */}
+              {onToggleRuler && (
+                <button
+                  onClick={() => {
+                    onToggleRuler();
+                    setOpenMenu(null);
+                  }}
+                  className={`
+                    flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all text-left
+                    ${
+                      isRulerActive
+                        ? "bg-sky-500/20 text-white border border-sky-500/30"
+                        : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${isRulerActive ? "bg-sky-500 text-white" : "bg-white/5 text-sky-400"}`}>
+                      <Ruler className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">Straightedge Ruler & Protractor</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Magnetic geometric edge guide</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-zinc-500 bg-white/5 px-1 py-0.5 rounded">R</span>
+                    {isRulerActive && <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)]" />}
+                  </div>
+                </button>
+              )}
+
+              {/* 3. Function Plotter */}
+              {onOpenPlotter && (
+                <button
+                  onClick={() => {
+                    onOpenPlotter();
+                    setOpenMenu(null);
+                  }}
+                  className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all text-left"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-white/5 text-cyan-400">
+                      <Activity className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">Math Function Plotter</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Plot y = f(x) curves & coordinate axes</div>
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {/* 4. Solution Reveal Curtain */}
+              {onToggleCurtain && (
+                <button
+                  onClick={() => {
+                    onToggleCurtain();
+                    setOpenMenu(null);
+                  }}
+                  className={`
+                    flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all text-left
+                    ${
+                      isCurtainOpen
+                        ? "bg-cyan-500/20 text-white border border-cyan-500/30"
+                        : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${isCurtainOpen ? "bg-cyan-500 text-zinc-950 font-bold" : "bg-white/5 text-cyan-400"}`}>
+                      <Eye className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">Solution Reveal Curtain</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Drape derivations & quiz proofs</div>
+                    </div>
+                  </div>
+                  {isCurtainOpen && <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />}
+                </button>
+              )}
+
+              {/* 5. Focus Spotlight */}
+              {onToggleSpotlight && (
+                <button
+                  onClick={() => {
+                    onToggleSpotlight();
+                    setOpenMenu(null);
+                  }}
+                  className={`
+                    flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all text-left
+                    ${
+                      isSpotlightActive
+                        ? "bg-amber-500/20 text-white border border-amber-500/30"
+                        : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${isSpotlightActive ? "bg-amber-500 text-zinc-950 font-bold" : "bg-white/5 text-amber-400"}`}>
+                      <Radio className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">Focus Spotlight Beam</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Highlight active equation focus</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-zinc-500 bg-white/5 px-1 py-0.5 rounded">Shift+K</span>
+                    {isSpotlightActive && <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />}
+                  </div>
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
