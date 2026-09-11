@@ -554,6 +554,8 @@ export const Whiteboard: React.FC = () => {
   const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSnappedShapeRef = useRef(false);
   const snappedShapeRef = useRef<ShapeItem | null>(null);
+  const snappedShapeInitialRef = useRef<ShapeItem | null>(null);
+  const holdAnchorPointRef = useRef<{ clientX: number; clientY: number } | null>(null);
 
   // ── Scribe Studio Branding & Hardware HUD State ──────────────────────────────
   const [lectureTitle, setLectureTitle] = useState(() => {
@@ -977,7 +979,7 @@ export const Whiteboard: React.FC = () => {
     }
 
     // Active inking stroke currently under pen tip (live on-the-fly)
-    if (active && !active.isHighlighter && active.points.length >= 2) {
+    if (active && !active.isHighlighter && active.points.length >= 2 && !isSnappedShapeRef.current) {
       const rawPoints = active.points.map((p) => [p.x, p.y, p.pressure]);
       const baseWidth = STROKE_WIDTH_MAP[active.width] ?? 4;
       const pfOptions = getPenStrokeOptions(active.penStyle ?? "pen", baseWidth);
@@ -3331,6 +3333,8 @@ export const Whiteboard: React.FC = () => {
       }
       isSnappedShapeRef.current = false;
       snappedShapeRef.current = null;
+      snappedShapeInitialRef.current = null;
+      holdAnchorPointRef.current = { clientX: e.clientX, clientY: e.clientY };
 
       let initialPoint = { x: worldPoint.x, y: worldPoint.y };
       if (rulerStateRef.current.isActive && rulerStateRef.current.snapEnabled) {
@@ -3699,28 +3703,63 @@ export const Whiteboard: React.FC = () => {
       if (isSnappedShapeRef.current && snappedShapeRef.current) {
         const sh = snappedShapeRef.current;
         if (sh.type === "line" || sh.type === "arrow") {
-          sh.x2 = worldPoint.x;
-          sh.y2 = worldPoint.y;
-          if (e.shiftKey) {
-            const dx = sh.x2 - sh.x1;
-            const dy = sh.y2 - sh.y1;
-            const angle = Math.atan2(dy, dx);
-            const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
-            const dist = Math.sqrt(dx * dx + dy * dy);
+          const dx = worldPoint.x - sh.x1;
+          const dy = worldPoint.y - sh.y1;
+          const angle = Math.atan2(dy, dx);
+          const snapStep = Math.PI / 4; // 45 degrees
+          const snappedAngle = Math.round(angle / snapStep) * snapStep;
+          const dist = Math.hypot(dx, dy);
+
+          if (e.shiftKey || Math.abs(angle - snappedAngle) <= 0.16) {
             sh.x2 = sh.x1 + dist * Math.cos(snappedAngle);
             sh.y2 = sh.y1 + dist * Math.sin(snappedAngle);
+          } else {
+            sh.x2 = worldPoint.x;
+            sh.y2 = worldPoint.y;
           }
         } else if (sh.type === "circle") {
-          const cx = (sh.x1 + sh.x2) / 2;
-          const cy = (sh.y1 + sh.y2) / 2;
-          const r = Math.max(10, Math.sqrt((worldPoint.x - cx) ** 2 + (worldPoint.y - cy) ** 2));
+          const initial = snappedShapeInitialRef.current;
+          const cx = initial ? (initial.x1 + initial.x2) / 2 : (sh.x1 + sh.x2) / 2;
+          const cy = initial ? (initial.y1 + initial.y2) / 2 : (sh.y1 + sh.y2) / 2;
+          const r = Math.max(12, Math.hypot(worldPoint.x - cx, worldPoint.y - cy));
           sh.x1 = cx - r;
           sh.y1 = cy - r;
           sh.x2 = cx + r;
           sh.y2 = cy + r;
-        } else if (sh.type === "rectangle" || sh.type === "triangle") {
-          sh.x2 = worldPoint.x;
-          sh.y2 = worldPoint.y;
+        } else if (sh.type === "rectangle") {
+          const initial = snappedShapeInitialRef.current;
+          if (initial) {
+            const minX = Math.min(initial.x1, worldPoint.x);
+            const minY = Math.min(initial.y1, worldPoint.y);
+            const maxX = Math.max(initial.x1, worldPoint.x);
+            const maxY = Math.max(initial.y1, worldPoint.y);
+            if (e.shiftKey) {
+              const side = Math.max(maxX - minX, maxY - minY);
+              sh.x1 = initial.x1;
+              sh.y1 = initial.y1;
+              sh.x2 = initial.x1 + (worldPoint.x >= initial.x1 ? side : -side);
+              sh.y2 = initial.y1 + (worldPoint.y >= initial.y1 ? side : -side);
+            } else {
+              sh.x1 = minX;
+              sh.y1 = minY;
+              sh.x2 = maxX;
+              sh.y2 = maxY;
+            }
+          } else {
+            sh.x2 = worldPoint.x;
+            sh.y2 = worldPoint.y;
+          }
+        } else if (sh.type === "triangle") {
+          const initial = snappedShapeInitialRef.current;
+          if (initial) {
+            sh.x1 = Math.min(initial.x1, worldPoint.x);
+            sh.y1 = Math.min(initial.y1, worldPoint.y);
+            sh.x2 = Math.max(initial.x2, worldPoint.x);
+            sh.y2 = Math.max(initial.y2, worldPoint.y);
+          } else {
+            sh.x2 = worldPoint.x;
+            sh.y2 = worldPoint.y;
+          }
         }
         scheduleRedraw();
         return;
@@ -3762,35 +3801,48 @@ export const Whiteboard: React.FC = () => {
         });
       }
 
-      // Draw-and-Hold Detection for Pen Mode
-      if (modeRef.current === "draw" && smartSnapEnabledRef.current) {
-        if (holdTimeoutRef.current) {
-          clearTimeout(holdTimeoutRef.current);
-        }
-        holdTimeoutRef.current = setTimeout(() => {
-          if (!isDrawingRef.current || !activeStrokeRef.current) return;
-          const pts = activeStrokeRef.current.points;
-          if (pts.length < 8) return;
+      // Draw-and-Hold Smart Shape Detection with Jitter Tolerance (Apple Notes / GoodNotes grade)
+      if (modeRef.current === "draw" && smartSnapEnabledRef.current && !isSnappedShapeRef.current) {
+        const currentClient = { clientX: e.clientX, clientY: e.clientY };
+        const anchor = holdAnchorPointRef.current;
+        const moveDist = anchor
+          ? Math.hypot(currentClient.clientX - anchor.clientX, currentClient.clientY - anchor.clientY)
+          : Infinity;
 
-          const candidate = classifyStroke(pts);
-          if (candidate) {
-            isSnappedShapeRef.current = true;
-            snappedShapeRef.current = {
-              id: activeStrokeRef.current.id,
-              type: candidate.type,
-              x1: candidate.x1,
-              y1: candidate.y1,
-              x2: candidate.x2,
-              y2: candidate.y2,
-              color: colorRef.current,
-              width: strokeWidthRef.current,
-              lineStyle: lineStyleRef.current,
-              fillStyle: fillStyleRef.current,
-            };
-            activeStrokeRef.current = null;
-            scheduleRedraw();
+        // If pointer moved beyond the micro-tremor jitter radius (14px), user is still drawing
+        if (moveDist > 14) {
+          holdAnchorPointRef.current = currentClient;
+          if (holdTimeoutRef.current) {
+            clearTimeout(holdTimeoutRef.current);
+            holdTimeoutRef.current = null;
           }
-        }, 420);
+          // 340ms of dwelling near this anchor point triggers the snap!
+          holdTimeoutRef.current = setTimeout(() => {
+            if (!isDrawingRef.current || !activeStrokeRef.current) return;
+            const pts = activeStrokeRef.current.points;
+            if (pts.length < 5) return;
+
+            const candidate = classifyStroke(pts);
+            if (candidate) {
+              isSnappedShapeRef.current = true;
+              snappedShapeRef.current = {
+                id: activeStrokeRef.current.id,
+                type: candidate.type,
+                x1: candidate.x1,
+                y1: candidate.y1,
+                x2: candidate.x2,
+                y2: candidate.y2,
+                color: colorRef.current,
+                width: strokeWidthRef.current,
+                lineStyle: lineStyleRef.current,
+                fillStyle: fillStyleRef.current,
+              };
+              snappedShapeInitialRef.current = { ...snappedShapeRef.current };
+              scheduleRedraw();
+            }
+          }, 340);
+        }
+        // If moveDist <= 14: pointer is dwelling/holding! We allow the timer to fire without resetting!
       }
 
       scheduleRedraw();
@@ -3919,7 +3971,30 @@ export const Whiteboard: React.FC = () => {
       scheduleRedraw();
     }
 
-    // Finish Inking
+    // Finish Inking or Live Snapped Shape
+    if (isSnappedShapeRef.current && snappedShapeRef.current) {
+      if (holdTimeoutRef.current) {
+        clearTimeout(holdTimeoutRef.current);
+        holdTimeoutRef.current = null;
+      }
+      isDrawingRef.current = false;
+      const shape = snappedShapeRef.current;
+      isSnappedShapeRef.current = false;
+      snappedShapeRef.current = null;
+      snappedShapeInitialRef.current = null;
+      activeStrokeRef.current = null;
+
+      if (snapshotBeforeGestureRef.current) {
+        setUndoStack((u) => [...u, snapshotBeforeGestureRef.current!]);
+        setRedoStack([]);
+      }
+      const nextShapes = [...shapesRef.current, shape];
+      shapesRef.current = nextShapes;
+      setShapes(nextShapes);
+      scheduleRedraw();
+      return;
+    }
+
     if (isDrawingRef.current && activeStrokeRef.current) {
       if (holdTimeoutRef.current) {
         clearTimeout(holdTimeoutRef.current);
@@ -3930,25 +4005,54 @@ export const Whiteboard: React.FC = () => {
       const finished = activeStrokeRef.current;
       activeStrokeRef.current = null;
 
-      // Check if stroke morphed into a snapped geometric shape
-      if (isSnappedShapeRef.current && snappedShapeRef.current) {
-        const shape = snappedShapeRef.current;
-        isSnappedShapeRef.current = false;
-        snappedShapeRef.current = null;
-
-        if (snapshotBeforeGestureRef.current) {
-          setUndoStack((u) => [...u, snapshotBeforeGestureRef.current!]);
-          setRedoStack([]);
+      // Smart Snap Check on pen lift:
+      // If educator paused at the end (dwell time >= 180ms), convert to snapped shape
+      if (
+        modeRef.current === "draw" &&
+        smartSnapEnabledRef.current &&
+        !finished.isHighlighter &&
+        finished.points.length >= 6
+      ) {
+        const pts = finished.points;
+        const lastPt = pts[pts.length - 1];
+        let endDwellDuration = 0;
+        for (let i = pts.length - 2; i >= 0; i--) {
+          const p = pts[i];
+          if (Math.hypot(p.x - lastPt.x, p.y - lastPt.y) <= 18 / cameraRef.current.zoom) {
+            if (lastPt.time != null && p.time != null) {
+              endDwellDuration = lastPt.time - p.time;
+            }
+          } else {
+            break;
+          }
         }
-        const nextShapes = [...shapesRef.current, shape];
-        shapesRef.current = nextShapes;
-        setShapes(nextShapes);
-        scheduleRedraw();
-        return;
+        if (endDwellDuration >= 180) {
+          const candidate = classifyStroke(pts);
+          if (candidate && candidate.confidence >= 0.90) {
+            if (snapshotBeforeGestureRef.current) {
+              setUndoStack((u) => [...u, snapshotBeforeGestureRef.current!]);
+              setRedoStack([]);
+            }
+            const shape: ShapeItem = {
+              id: finished.id,
+              type: candidate.type,
+              x1: candidate.x1,
+              y1: candidate.y1,
+              x2: candidate.x2,
+              y2: candidate.y2,
+              color: colorRef.current,
+              width: strokeWidthRef.current,
+              lineStyle: lineStyleRef.current,
+              fillStyle: fillStyleRef.current,
+            };
+            const nextShapes = [...shapesRef.current, shape];
+            shapesRef.current = nextShapes;
+            setShapes(nextShapes);
+            scheduleRedraw();
+            return;
+          }
+        }
       }
-
-      isSnappedShapeRef.current = false;
-      snappedShapeRef.current = null;
 
       // Check for natural scribble-to-erase gesture
       if (!finished.isHighlighter && finished.points.length >= 12) {
