@@ -14,14 +14,14 @@ import {
   Maximize,
   Minimize,
   Maximize2,
-  Layers,
   Video,
   Save,
   FolderOpen,
-  CheckCheck,
   Cloud,
   User,
   LogOut,
+  ChevronDown,
+  Layers,
 } from "lucide-react";
 import type { GridStyle } from "../types/whiteboard";
 
@@ -54,6 +54,8 @@ interface HeaderBarProps {
   onSignOut?: () => void;
 }
 
+type DropdownMenu = "file" | "export" | "profile" | null;
+
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   title,
   onTitleChange,
@@ -85,7 +87,23 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [openMenu, setOpenMenu] = useState<DropdownMenu>(null);
+
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const tapboardInputRef = useRef<HTMLInputElement>(null);
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handlePointerDownOutside = (e: PointerEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDownOutside);
+    return () => document.removeEventListener("pointerdown", handlePointerDownOutside);
+  }, []);
 
   useEffect(() => {
     setTempTitle(title);
@@ -123,20 +141,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const getGridLabel = () => {
     switch (gridStyle) {
       case "dots":
-        return "Dot Grid";
+        return "Dots";
       case "grid":
         return "Math Grid";
       case "none":
-        return "Blank Slate";
+        return "Blank";
     }
   };
 
   return (
     <header
+      ref={headerRef}
       className="
         fixed top-3 inset-x-3 z-40
         flex items-center justify-between
-        px-3.5 py-2
+        px-3.5 py-1.5
         rounded-2xl
         bg-zinc-950/90 backdrop-blur-2xl
         border border-white/[0.08]
@@ -146,12 +165,38 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       "
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {/* ── Left: Tapboard Brand & Editable Title ── */}
+      {/* ── Hidden File Inputs ── */}
+      <input
+        ref={pdfInputRef}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            onPdfUpload(e.target.files[0]);
+            e.target.value = "";
+          }
+        }}
+      />
+      <input
+        ref={tapboardInputRef}
+        type="file"
+        accept=".tapboard,application/json"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            onImportTapboard?.(e.target.files[0]);
+            e.target.value = "";
+          }
+        }}
+      />
+
+      {/* ── Left Group: Brand & Document Identity ── */}
       <div className="flex items-center gap-3 min-w-0">
-        {/* Tapboard Logo — tap ripple + pen mark */}
-        <div className="flex items-center gap-2.5 pr-3.5 border-r border-white/[0.08] shrink-0">
+        {/* Brand Logo */}
+        <div className="flex items-center gap-2.5 pr-3 border-r border-white/[0.08] shrink-0">
           <div className="relative w-8 h-8 shrink-0">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 shadow-lg shadow-cyan-500/30" />
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 shadow-md shadow-cyan-500/25" />
             <svg viewBox="0 0 32 32" className="absolute inset-0 w-full h-full p-1.5" fill="none">
               <circle cx="13" cy="16" r="8" stroke="white" strokeWidth="1.5" opacity="0.25"/>
               <circle cx="13" cy="16" r="4.5" stroke="white" strokeWidth="1.5" opacity="0.5"/>
@@ -160,18 +205,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <path d="M23 8 L24.5 9.5 L22 11 L20 8 Z" fill="white" opacity="0.55"/>
             </svg>
           </div>
-          <div className="flex flex-col leading-none">
-            <span className="text-[15px] font-bold tracking-[-0.03em] text-white" style={{fontFamily:"'Inter', sans-serif"}}>
-              Tapboard
-            </span>
-            <span className="text-[10px] text-zinc-500 font-medium tracking-wide mt-px">
-              Teaching Whiteboard
-            </span>
-          </div>
+          <span className="text-[15px] font-bold tracking-tight text-white hidden sm:inline" style={{fontFamily:"'Inter', sans-serif"}}>
+            Tapboard
+          </span>
         </div>
 
         {/* Editable Lecture Title */}
-        <div className="flex items-center gap-1.5 min-w-0 max-w-xs md:max-w-md">
+        <div className="flex items-center gap-2 min-w-0 max-w-[160px] sm:max-w-xs md:max-w-sm">
           {isEditingTitle ? (
             <div className="flex items-center gap-1">
               <input
@@ -189,7 +229,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 }}
                 className="
                   px-2 py-0.5 rounded-lg bg-zinc-900 border border-cyan-500/50 text-xs text-white font-medium
-                  outline-none ring-1 ring-cyan-500/30 w-48 sm:w-64 font-sans
+                  outline-none ring-1 ring-cyan-500/30 w-40 sm:w-56 font-sans
                 "
               />
               <button
@@ -215,91 +255,288 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <Edit3 className="w-3 h-3 text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             </button>
           )}
+
+          {/* Subtle Saved Pill */}
+          {isAutoSaved && (
+            <span
+              title="All changes auto-saved to offline storage & cloud"
+              className="hidden lg:flex items-center gap-1 text-[10px] font-mono text-emerald-400/80 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0"
+            >
+              <Check className="w-2.5 h-2.5" />
+              <span>Saved</span>
+            </span>
+          )}
         </div>
       </div>
 
-      {/* ── Center: Tablet Hardware & Auto-Save Sync ── */}
-      <div className="hidden md:flex items-center gap-2">
-        <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/5 text-[11px] font-mono">
-          {isPenActive || currentPressure > 0 ? (
-            <>
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <PenTool className="w-3 h-3 text-emerald-400" />
-              <span className="text-emerald-300 font-medium">Stylus Active</span>
-              <span className="text-zinc-500">•</span>
-              <span className="text-zinc-400">
-                {Math.round(currentPressure * 8192)} / 8192 levels
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/60" />
-              <MousePointer2 className="w-3 h-3 text-zinc-400" />
-              <span className="text-zinc-400">Tablet Ready</span>
-            </>
+      {/* ── Center Group: Organized Menus & Canvas Controls ── */}
+      <div className="flex items-center gap-1.5">
+        {/* 1. FILE & PROJECT MENU */}
+        <div className="relative">
+          <button
+            onClick={() => setOpenMenu(openMenu === "file" ? null : "file")}
+            className={`
+              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+              transition-all duration-150 active:scale-95
+              ${
+                openMenu === "file"
+                  ? "bg-white/15 text-white"
+                  : "text-zinc-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08]"
+              }
+            `}
+          >
+            <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
+            <span>File</span>
+            <ChevronDown className="w-3 h-3 text-zinc-500" />
+          </button>
+
+          {openMenu === "file" && (
+            <div
+              className="
+                absolute left-0 top-full mt-2 w-56 p-1.5 rounded-2xl
+                bg-zinc-950/95 backdrop-blur-2xl border border-white/10
+                shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-0.5 text-xs
+                animate-in fade-in zoom-in-95 duration-100
+              "
+            >
+              {/* Cloud Library */}
+              {onOpenCloudLibrary && currentUser && (
+                <button
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onOpenCloudLibrary();
+                  }}
+                  className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-200 hover:text-white hover:bg-white/[0.08] transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Cloud className="w-4 h-4 text-sky-400" />
+                    <span className="font-medium">Cloud Library</span>
+                  </div>
+                  <span className="text-[10px] text-zinc-500">Supabase</span>
+                </button>
+              )}
+
+              {/* Import PDF */}
+              <button
+                onClick={() => {
+                  setOpenMenu(null);
+                  pdfInputRef.current?.click();
+                }}
+                className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-200 hover:text-white hover:bg-white/[0.08] transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <FileUp className="w-4 h-4 text-cyan-400" />
+                  <span className="font-medium">Import PDF Slides</span>
+                </div>
+                <span className="text-[10px] text-zinc-500">Document</span>
+              </button>
+
+              <div className="my-1 border-t border-white/5" />
+
+              {/* Save .tapboard File */}
+              {onExportTapboard && (
+                <button
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onExportTapboard();
+                  }}
+                  className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-200 hover:text-white hover:bg-white/[0.08] transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Save className="w-4 h-4 text-emerald-400" />
+                    <span className="font-medium">Save Project File</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500">.tapboard</span>
+                </button>
+              )}
+
+              {/* Open .tapboard File */}
+              {onImportTapboard && (
+                <button
+                  onClick={() => {
+                    setOpenMenu(null);
+                    tapboardInputRef.current?.click();
+                  }}
+                  className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-200 hover:text-white hover:bg-white/[0.08] transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="w-4 h-4 text-amber-400" />
+                    <span className="font-medium">Open Project File</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500">.tapboard</span>
+                </button>
+              )}
+
+              <div className="my-1 border-t border-white/5" />
+
+              {/* Clear Canvas */}
+              <button
+                onClick={() => {
+                  if (confirmClear) {
+                    onClear();
+                    setConfirmClear(false);
+                    setOpenMenu(null);
+                  } else {
+                    setConfirmClear(true);
+                  }
+                }}
+                className={`
+                  flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-colors
+                  ${
+                    confirmClear
+                      ? "bg-rose-500 text-white font-bold"
+                      : "text-rose-400 hover:bg-rose-500/15"
+                  }
+                `}
+              >
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  <span>{confirmClear ? "Click again to confirm" : "Clear Blackboard"}</span>
+                </div>
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Local IndexedDB Auto-Save Status */}
-        <div
-          title="Auto-saved to local offline storage (never lose work on refresh)"
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-300"
-        >
-          <CheckCheck className="w-3 h-3 text-emerald-400" />
-          <span>{isAutoSaved ? "Auto-saved" : "Saving..."}</span>
+        {/* 2. EXPORT MENU */}
+        <div className="relative">
+          <button
+            onClick={() => setOpenMenu(openMenu === "export" ? null : "export")}
+            className={`
+              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+              transition-all duration-150 active:scale-95
+              ${
+                openMenu === "export"
+                  ? "bg-white/15 text-white"
+                  : "text-zinc-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08]"
+              }
+            `}
+          >
+            <Download className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Export</span>
+            <ChevronDown className="w-3 h-3 text-zinc-500" />
+          </button>
+
+          {openMenu === "export" && (
+            <div
+              className="
+                absolute left-0 top-full mt-2 w-60 p-1.5 rounded-2xl
+                bg-zinc-950/95 backdrop-blur-2xl border border-white/10
+                shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-0.5 text-xs
+                animate-in fade-in zoom-in-95 duration-100
+              "
+            >
+              {/* PNG Slide Export */}
+              <button
+                onClick={() => {
+                  setOpenMenu(null);
+                  onExport();
+                }}
+                className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-200 hover:text-white hover:bg-white/[0.08] transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Download className="w-4 h-4 text-emerald-400" />
+                  <div className="flex flex-col text-left">
+                    <span className="font-medium">Export Current Slide</span>
+                    <span className="text-[10px] text-zinc-500">High-resolution PNG image</span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono text-zinc-500">PNG</span>
+              </button>
+
+              {/* Multi-Page Class Notes PDF Export */}
+              <button
+                onClick={() => {
+                  setOpenMenu(null);
+                  onExportNotesPdf();
+                }}
+                disabled={isExportingNotes}
+                className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-200 hover:text-white hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+              >
+                <div className="flex items-center gap-2">
+                  {isExportingNotes ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                  ) : (
+                    <BookOpen className="w-4 h-4 text-amber-400" />
+                  )}
+                  <div className="flex flex-col text-left">
+                    <span className="font-medium">Export Class Notes</span>
+                    <span className="text-[10px] text-zinc-500">Multi-page PDF of all slides</span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono text-zinc-500">PDF</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Segmented Control: Canvas Display & View Modes ── */}
+        <div className="flex items-center p-0.5 rounded-xl bg-white/[0.03] border border-white/5">
+          {/* Background Grid Toggle */}
+          <button
+            onClick={cycleGrid}
+            title="Cycle Background Grid (G): Dot Grid / Math Grid / Blank"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+          >
+            <Grid3X3 className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-[11px] font-mono hidden md:inline">{getGridLabel()}</span>
+          </button>
+
+          {/* Finite Sheet vs Infinite Toggle */}
+          {onToggleFiniteMode && (
+            <button
+              onClick={onToggleFiniteMode}
+              title={isFiniteMode ? "Switch to Infinite Canvas" : "Switch to 16:9 Presentation Sheet"}
+              className={`
+                flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors
+                ${
+                  isFiniteMode
+                    ? "text-sky-300 bg-sky-500/15"
+                    : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                }
+              `}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-mono hidden md:inline">
+                {isFiniteMode ? "16:9 Sheet" : "Infinite"}
+              </span>
+            </button>
+          )}
+
+          {/* Fit to Screen */}
+          {onFitToScreen && (
+            <button
+              onClick={onFitToScreen}
+              title="Fit Slide to Screen (0)"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Fullscreen Mode */}
+          {onToggleFullscreen && (
+            <button
+              onClick={onToggleFullscreen}
+              title={isFullscreen ? "Exit Fullscreen (F / Esc)" : "Enter Fullscreen (F)"}
+              className={`
+                p-1.5 rounded-lg transition-colors
+                ${
+                  isFullscreen
+                    ? "text-purple-300 bg-purple-500/20"
+                    : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
+                }
+              `}
+            >
+              {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── Right: Canvas Controls & Actions ── */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        {/* Supabase Cloud Sync / Auth */}
-        {currentUser ? (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={onOpenCloudLibrary}
-              title={`Logged in as ${currentUser.email} • Click to open Cloud Lectures`}
-              className="
-                flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-                text-sky-300 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30
-                transition-all duration-150 active:scale-95 shadow-sm
-              "
-            >
-              <Cloud className="w-3.5 h-3.5 text-sky-400" />
-              <span className="hidden sm:inline max-w-[110px] truncate">
-                {currentUser.email?.split("@")[0] || "Lectures"}
-              </span>
-            </button>
-            {onSignOut && (
-              <button
-                onClick={onSignOut}
-                title="Sign Out of Supabase"
-                className="p-1.5 rounded-xl text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        ) : (
-          onOpenAuth && (
-            <button
-              onClick={onOpenAuth}
-              title="Sign in with Supabase to save drawings to the cloud"
-              className="
-                flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-                text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30
-                transition-all duration-150 active:scale-95
-              "
-            >
-              <User className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Sign In</span>
-            </button>
-          )
-        )}
-
-        {/* Record Lecture Video & Mic */}
+      {/* ── Right Group: Recording, Telemetry & Educator Profile ── */}
+      <div className="flex items-center gap-2">
+        {/* Record Lecture Quick-Action Button */}
         {onStartRecording && (
           <button
             onClick={onStartRecording}
@@ -310,230 +547,103 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               transition-all duration-150 active:scale-95
               ${
                 isRecording
-                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse"
-                  : "bg-rose-500/12 hover:bg-rose-500/22 text-rose-300 border border-rose-500/25 shadow-sm"
+                  ? "bg-rose-500/25 text-rose-300 border border-rose-500/40 animate-pulse shadow-md shadow-rose-500/20"
+                  : "bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/25 shadow-sm"
               }
             `}
           >
             <Video className="w-3.5 h-3.5 text-rose-400" />
-            <span className="hidden lg:inline">{isRecording ? "Recording..." : "Record"}</span>
+            <span className="hidden sm:inline">{isRecording ? "Recording..." : "Record"}</span>
           </button>
         )}
 
-        {/* Save .tapboard Project */}
-        {onExportTapboard && (
-          <button
-            onClick={onExportTapboard}
-            title="Save Lecture Project File (.tapboard)"
-            className="
-              flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-              text-zinc-300 bg-white/[0.04] hover:bg-white/[0.1] border border-white/5
-              transition-all duration-150 active:scale-95
-            "
-          >
-            <Save className="w-3.5 h-3.5 text-zinc-400" />
-            <span className="hidden xl:inline">Save</span>
-          </button>
-        )}
-
-        {/* Open .tapboard Project */}
-        {onImportTapboard && (
-          <label
-            title="Open Lecture Project File (.tapboard)"
-            className="
-              flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-              text-zinc-300 bg-white/[0.04] hover:bg-white/[0.1] border border-white/5
-              cursor-pointer transition-all duration-150 active:scale-95
-            "
-          >
-            <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
-            <span className="hidden xl:inline">Open</span>
-            <input
-              type="file"
-              accept=".tapboard,application/json"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  onImportTapboard(e.target.files[0]);
-                  e.target.value = "";
-                }
-              }}
-            />
-          </label>
-        )}
-
-        {/* Background Grid Selector */}
-        <button
-          onClick={cycleGrid}
-          title="Cycle Background Grid (G): Dot Grid / Math Grid / Blank"
-          className="
-            flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-zinc-300
-            bg-white/[0.05] hover:bg-white/[0.12] hover:text-white border border-white/5
-            transition-all duration-150 active:scale-95
-          "
+        {/* Stylus / Tablet Telemetry Badge */}
+        <div
+          title={
+            isPenActive || currentPressure > 0
+              ? `Active Stylus: ${Math.round(currentPressure * 8192)} / 8192 pressure levels`
+              : "Tablet & Stylus ready"
+          }
+          className="hidden xl:flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/[0.04] border border-white/5 text-[11px] font-mono text-zinc-400"
         >
-          <Grid3X3 className="w-3.5 h-3.5 text-zinc-400" />
-          <span className="hidden sm:inline font-mono text-[11px]">
-            {getGridLabel()}
-          </span>
-        </button>
-
-        {/* Native PDF Import */}
-        <label
-          title="Import PDF document (lecture notes, exam papers, slides)"
-          className="
-            flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-            text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30
-            cursor-pointer transition-all duration-150 active:scale-95
-          "
-        >
-          <FileUp className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">PDF</span>
-          <input
-            type="file"
-            accept="application/pdf"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files && e.target.files[0]) {
-                onPdfUpload(e.target.files[0]);
-                e.target.value = "";
-              }
-            }}
-          />
-        </label>
-
-        {/* Export High-Res PNG */}
-        <button
-          onClick={onExport}
-          title="Export high-resolution lecture PNG"
-          className="
-            flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-            text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30
-            transition-all duration-150 active:scale-95
-          "
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">PNG</span>
-        </button>
-
-        {/* Export Multi-Page Annotated Class Notes PDF */}
-        <button
-          onClick={onExportNotesPdf}
-          disabled={isExportingNotes}
-          title="Export Multi-Page Annotated Class Notes PDF (All Slides Combined)"
-          className={`
-            flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-            text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30
-            transition-all duration-150 active:scale-95
-            ${isExportingNotes ? "opacity-60 cursor-wait" : ""}
-          `}
-        >
-          {isExportingNotes ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-300" />
+          {isPenActive || currentPressure > 0 ? (
+            <>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <PenTool className="w-3 h-3 text-emerald-400" />
+              <span className="text-emerald-300 text-[10px]">Stylus</span>
+            </>
           ) : (
-            <BookOpen className="w-3.5 h-3.5" />
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/60" />
+              <MousePointer2 className="w-3 h-3 text-zinc-400" />
+            </>
           )}
-          <span className="hidden md:inline">
-            {isExportingNotes ? "Exporting..." : "Notes PDF"}
-          </span>
-        </button>
+        </div>
 
-        {/* Fit Slide to Screen (Proper Full View) */}
-        {onFitToScreen && (
-          <button
-            onClick={onFitToScreen}
-            title="Fit Slide to Full Screen (0 / Ctrl+0)"
-            className="
-              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-              text-sky-300 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30
-              transition-all duration-150 active:scale-95
-            "
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Fit Slide</span>
-          </button>
-        )}
-
-        {/* Finite / Infinite Canvas Mode Toggle */}
-        {onToggleFiniteMode && (
-          <button
-            onClick={onToggleFiniteMode}
-            title={isFiniteMode ? "Switch to Infinite Canvas (free draw)" : "Switch to Finite Sheet Mode (bounded page)"}
-            className={`
-              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-              transition-all duration-150 active:scale-95
-              ${
-                isFiniteMode
-                  ? "text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40"
-                  : "text-zinc-300 bg-white/[0.05] hover:bg-white/[0.12] hover:text-white border border-white/5"
-              }
-            `}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{isFiniteMode ? "Sheet" : "Infinite"}</span>
-          </button>
-        )}
-
-        {/* Fullscreen Presentation Mode Toggle */}
-        {onToggleFullscreen && (
-          <button
-            onClick={onToggleFullscreen}
-            title={isFullscreen ? "Exit Fullscreen (F / Esc)" : "Enter Fullscreen Presentation Mode (F)"}
-            className={`
-              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-              transition-all duration-150 active:scale-95
-              ${
-                isFullscreen
-                  ? "text-purple-300 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/40 shadow-md shadow-purple-500/20"
-                  : "text-zinc-300 bg-white/[0.05] hover:bg-white/[0.12] hover:text-white border border-white/5"
-              }
-            `}
-          >
-            {isFullscreen ? (
-              <Minimize className="w-3.5 h-3.5 text-purple-300" />
-            ) : (
-              <Maximize className="w-3.5 h-3.5 text-zinc-400" />
-            )}
-            <span className="hidden sm:inline">{isFullscreen ? "Exit Full" : "Fullscreen"}</span>
-          </button>
-        )}
-
-        <div className="w-px h-5 bg-white/10 shrink-0 mx-0.5" />
-
-        {/* Supabase Cloud Sync & Account Profile */}
+        {/* Supabase Cloud Account / Sync */}
         {currentUser ? (
-          <div className="flex items-center gap-1.5">
-            {onOpenCloudLibrary && (
-              <button
-                onClick={onOpenCloudLibrary}
-                title="Open Cloud Lecture Library"
-                className="
-                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-                  text-sky-300 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30
-                  transition-all duration-150 active:scale-95 shadow-sm
-                "
-              >
-                <Cloud className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Cloud Library</span>
-              </button>
-            )}
-            <div className="flex items-center gap-1.5 pl-1.5 pr-1.5 py-1 rounded-xl bg-white/[0.04] border border-white/10 text-xs">
+          <div className="relative">
+            <button
+              onClick={() => setOpenMenu(openMenu === "profile" ? null : "profile")}
+              className="
+                flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-xl
+                bg-white/[0.05] hover:bg-white/[0.1] border border-white/10
+                text-xs transition-colors active:scale-95
+              "
+            >
               <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">
                 {currentUser.email ? currentUser.email.charAt(0).toUpperCase() : <User className="w-3 h-3" />}
               </div>
-              <span className="text-[11px] text-zinc-300 font-mono hidden md:inline max-w-[90px] truncate">
+              <span className="text-[11px] text-zinc-200 font-mono hidden md:inline max-w-[80px] truncate">
                 {currentUser.email?.split("@")[0]}
               </span>
-              {onSignOut && (
-                <button
-                  onClick={onSignOut}
-                  title="Sign out of Supabase Cloud"
-                  className="p-1 rounded-lg text-zinc-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
-                >
-                  <LogOut className="w-3 h-3" />
-                </button>
-              )}
-            </div>
+              <ChevronDown className="w-3 h-3 text-zinc-400" />
+            </button>
+
+            {openMenu === "profile" && (
+              <div
+                className="
+                  absolute right-0 top-full mt-2 w-52 p-1.5 rounded-2xl
+                  bg-zinc-950/95 backdrop-blur-2xl border border-white/10
+                  shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-0.5 text-xs
+                  animate-in fade-in zoom-in-95 duration-100
+                "
+              >
+                <div className="px-3 py-1.5 border-b border-white/5 mb-1">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider block font-semibold">Educator Profile</span>
+                  <span className="text-xs text-zinc-200 font-medium truncate block">{currentUser.email}</span>
+                </div>
+
+                {onOpenCloudLibrary && (
+                  <button
+                    onClick={() => {
+                      setOpenMenu(null);
+                      onOpenCloudLibrary();
+                    }}
+                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl text-zinc-200 hover:text-white hover:bg-white/[0.08] transition-colors"
+                  >
+                    <Cloud className="w-4 h-4 text-sky-400" />
+                    <span>Cloud Lectures</span>
+                  </button>
+                )}
+
+                {onSignOut && (
+                  <button
+                    onClick={() => {
+                      setOpenMenu(null);
+                      onSignOut();
+                    }}
+                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sign Out</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           onOpenAuth && (
@@ -541,57 +651,31 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               onClick={onOpenAuth}
               title="Sign in or create account to sync lectures to Supabase Cloud"
               className="
-                flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-                text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30
-                transition-all duration-150 active:scale-95 shadow-sm
+                flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold
+                text-emerald-950 bg-gradient-to-r from-emerald-400 to-teal-400
+                hover:opacity-90 shadow-md shadow-emerald-500/20
+                transition-all duration-150 active:scale-95 shrink-0
               "
             >
-              <Cloud className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Cloud Sync</span>
+              <Cloud className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sign In</span>
             </button>
           )
         )}
 
-        {/* Clear Canvas with Safety Confirmation */}
-        <button
-          onClick={() => {
-            if (confirmClear) {
-              onClear();
-              setConfirmClear(false);
-            } else {
-              setConfirmClear(true);
-            }
-          }}
-          title="Clear all blackboard ink & shapes"
-          className={`
-            flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-            border transition-all duration-150 active:scale-95
-            ${
-              confirmClear
-                ? "bg-red-500 text-white border-red-400 animate-pulse"
-                : "text-red-400 bg-red-500/10 hover:bg-red-500/20 border-red-500/30"
-            }
-          `}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">
-            {confirmClear ? "Confirm?" : "Clear"}
-          </span>
-        </button>
+        <div className="w-px h-4 bg-white/10 shrink-0 mx-0.5" />
 
-        <div className="w-px h-5 bg-white/10 shrink-0 mx-0.5" />
-
-        {/* Keyboard Shortcuts Help */}
+        {/* Shortcuts Help Modal Trigger */}
         <button
           onClick={onOpenShortcuts}
           title="Keyboard Shortcuts & Gestures (?)"
           className="
-            flex items-center justify-center w-8 h-8 rounded-xl
-            text-zinc-400 hover:text-white bg-white/[0.05] hover:bg-white/[0.12]
+            flex items-center justify-center w-7 h-7 rounded-xl
+            text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.1]
             border border-white/5 transition-all active:scale-95
           "
         >
-          <HelpCircle className="w-4 h-4" />
+          <HelpCircle className="w-3.5 h-3.5" />
         </button>
       </div>
     </header>
