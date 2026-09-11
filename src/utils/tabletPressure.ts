@@ -32,6 +32,19 @@ export const TABLET_PROFILES: TabletBrandProfile[] = [
     },
   },
   {
+    id: "huion-hs64",
+    name: "Huion HS64 (PW100 Pen)",
+    description: "6.3x4\" pad, PW100 battery-free stylus, 8192 levels, 266 PPS, and barrel rocker hold-to-erase.",
+    settings: {
+      pressureCurve: "soft",
+      palmRejection: "standard",
+      barrelButtonAction: "erase",
+      minPressureThreshold: 0.012,
+      smoothing: 0.55,
+      streamline: 0.4,
+    },
+  },
+  {
     id: "huion",
     name: "Huion (Kamvas / Inspiroy / PW517)",
     description: "Optimized for PenTech 3.0+ low activation force and delicate stroke entry.",

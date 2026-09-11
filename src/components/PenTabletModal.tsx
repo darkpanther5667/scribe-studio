@@ -275,6 +275,41 @@ export const PenTabletModal: React.FC<PenTabletModalProps> = ({
             </div>
           </div>
 
+          {/* Huion HS64 & Express Keys Guide Banner */}
+          <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/25 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-300">
+                <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Huion HS64 & PW100 Optimal Setup</span>
+              </div>
+              <span className="text-[10px] text-cyan-400/70 font-mono">6.3&quot; × 4&quot; • 8192 Levels</span>
+            </div>
+            <p className="text-[11px] text-zinc-300 leading-relaxed">
+              In your <span className="text-white font-semibold">Huion Tablet App</span>, make sure <span className="text-emerald-400 font-semibold underline underline-offset-2">&quot;Enable Windows Ink&quot;</span> is checked so browser pressure sensitivity is unlocked.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
+              <div className="bg-black/30 border border-cyan-500/20 rounded-lg p-1.5 text-center">
+                <div className="text-[9px] text-cyan-300/70 uppercase tracking-wide">Key 1 (Top)</div>
+                <div className="text-[11px] font-mono font-bold text-white">Ctrl + Z (Undo)</div>
+              </div>
+              <div className="bg-black/30 border border-cyan-500/20 rounded-lg p-1.5 text-center">
+                <div className="text-[9px] text-cyan-300/70 uppercase tracking-wide">Key 2</div>
+                <div className="text-[11px] font-mono font-bold text-white">P (Pen Nib)</div>
+              </div>
+              <div className="bg-black/30 border border-cyan-500/20 rounded-lg p-1.5 text-center">
+                <div className="text-[9px] text-cyan-300/70 uppercase tracking-wide">Key 3</div>
+                <div className="text-[11px] font-mono font-bold text-white">E (Eraser)</div>
+              </div>
+              <div className="bg-black/30 border border-cyan-500/20 rounded-lg p-1.5 text-center">
+                <div className="text-[9px] text-cyan-300/70 uppercase tracking-wide">Key 4 (Bottom)</div>
+                <div className="text-[11px] font-mono font-bold text-white">Alt + S (Snap)</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-zinc-400 flex items-center gap-1">
+              <span className="text-cyan-400 font-semibold">PW100 Pen Rocker:</span> Lower button set to Right-Click in Huion App triggers instant Hold-to-Erase in Scribe Studio!
+            </div>
+          </div>
+
           {/* 3. Pressure Curve Selection */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
