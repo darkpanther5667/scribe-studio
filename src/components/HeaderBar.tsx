@@ -8,7 +8,6 @@ import {
   Download,
   Trash2,
   PenTool,
-  MousePointer2,
   BookOpen,
   Loader2,
   Maximize,
@@ -90,6 +89,7 @@ interface HeaderBarProps {
   isStemBarOpen?: boolean;
   onToggleSplitScreen?: () => void;
   isSplitScreenActive?: boolean;
+  onOpenTabletSettings?: () => void;
 }
 
 type DropdownMenu = "file" | "export" | "profile" | "template" | "studio" | "teaching" | null;
@@ -142,6 +142,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   isStemBarOpen = false,
   onToggleSplitScreen,
   isSplitScreenActive = false,
+  onOpenTabletSettings,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
@@ -1261,6 +1262,27 @@ const THEME_OPTIONS: {
                   </div>
                 </button>
               )}
+
+              {/* 6. Pen Tablet Calibration */}
+              {onOpenTabletSettings && (
+                <button
+                  onClick={() => {
+                    onOpenTabletSettings();
+                    setOpenMenu(null);
+                  }}
+                  className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all text-left border-t border-white/10 mt-1 pt-2"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400">
+                      <PenTool className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">Pen Tablet & Stylus Calibration</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Pressure curves, palm rejection & barrel buttons</div>
+                    </div>
+                  </div>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1289,14 +1311,20 @@ const THEME_OPTIONS: {
           </button>
         )}
 
-        {/* Stylus / Tablet Telemetry Badge */}
-        <div
+        {/* Stylus / Tablet Telemetry Badge (Clickable to calibrate) */}
+        <button
+          onClick={onOpenTabletSettings}
           title={
             isPenActive || currentPressure > 0
-              ? `Active Stylus: ${Math.round(currentPressure * 8192)} / 8192 pressure levels`
-              : "Tablet & Stylus ready"
+              ? `Active Stylus: ${Math.round(currentPressure * 8192)} / 8192 pressure levels (Click to calibrate)`
+              : "Tablet & Stylus Ready (Click to calibrate pen tab)"
           }
-          className="hidden xl:flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/[0.04] border border-white/5 text-[11px] font-mono text-zinc-400"
+          className="
+            hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full
+            bg-white/[0.04] hover:bg-white/[0.1] hover:border-cyan-500/40
+            border border-white/5 text-[11px] font-mono text-zinc-400 hover:text-white
+            transition-all active:scale-95 cursor-pointer
+          "
         >
           {isPenActive || currentPressure > 0 ? (
             <>
@@ -1305,15 +1333,16 @@ const THEME_OPTIONS: {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
               <PenTool className="w-3 h-3 text-emerald-400" />
-              <span className="text-emerald-300 text-[10px]">Stylus</span>
+              <span className="text-emerald-300 text-[10px]">Stylus ({Math.round(currentPressure * 100)}%)</span>
             </>
           ) : (
             <>
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/60" />
-              <MousePointer2 className="w-3 h-3 text-zinc-400" />
+              <PenTool className="w-3 h-3 text-zinc-400" />
+              <span className="text-[10px]">Pen Tab</span>
             </>
           )}
-        </div>
+        </button>
 
         {/* Supabase Cloud Account / Sync */}
         {currentUser ? (

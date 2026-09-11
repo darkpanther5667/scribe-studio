@@ -84,6 +84,15 @@ import { findScribbleTargets } from "../utils/scribbleErase";
 import { EducatorCameraPiP } from "./EducatorCameraPiP";
 import { ClassroomPollWidget } from "./ClassroomPollWidget";
 import { StemSymbolBar } from "./StemSymbolBar";
+import { PenTabletModal } from "./PenTabletModal";
+import {
+  loadTabletSettings,
+  saveTabletSettings,
+  calibratePressure,
+  isStylusBarrelButtonPressed,
+  isStylusEraserTip,
+} from "../utils/tabletPressure";
+import type { TabletSettings } from "../types/whiteboard";
 
 // ─── Pen style → perfect-freehand options ────────────────────────────────────
 
@@ -508,6 +517,19 @@ export const Whiteboard: React.FC = () => {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [livePressure, setLivePressure] = useState(0);
   const [isLiveStylus, setIsLiveStylus] = useState(false);
+
+  // ── Pen Tablet & Stylus Hardware Calibration State ─────────────────────────
+  const [tabletSettings, setTabletSettings] = useState<TabletSettings>(() => loadTabletSettings());
+  const tabletSettingsRef = useRef<TabletSettings>(tabletSettings);
+  tabletSettingsRef.current = tabletSettings;
+  const [isTabletModalOpen, setIsTabletModalOpen] = useState(false);
+  const lastPenTimeRef = useRef<number>(0);
+
+  const handleTabletSettingsChange = useCallback((next: TabletSettings) => {
+    setTabletSettings(next);
+    tabletSettingsRef.current = next;
+    saveTabletSettings(next);
+  }, []);
 
   // ── Favorite Pens, Color Studio, and Zen Mode ───────────────────────────────
   const [favoritePens, setFavoritePens] = useState<FavoritePen[]>(() => loadFavoritePens());
@@ -2896,12 +2918,20 @@ export const Whiteboard: React.FC = () => {
         return;
       }
 
+      const palmMode = tabletSettingsRef.current.palmRejection;
+      const isRecentPen = Date.now() - lastPenTimeRef.current < 1200;
+
       if (e.pointerType === "pen") {
         isPenActiveRef.current = true;
+        lastPenTimeRef.current = Date.now();
         setIsLiveStylus(true);
-        setLivePressure(e.pressure || 0.5);
-      } else if (e.pointerType === "touch" && isPenActiveRef.current) {
-        return;
+        const calPressure = calibratePressure(
+          e.pressure > 0 ? e.pressure : 0.5,
+          e.pointerType,
+          tabletSettingsRef.current.pressureCurve,
+          tabletSettingsRef.current.minPressureThreshold
+        );
+        setLivePressure(calPressure);
       } else {
         setIsLiveStylus(false);
       }
@@ -2931,23 +2961,32 @@ export const Whiteboard: React.FC = () => {
           scheduleRedraw();
           return;
         }
+
+        // Strict palm rejection: reject single touch if pen is active or lifted recently
+        if (palmMode === "strict" && (isPenActiveRef.current || isRecentPen)) {
+          return;
+        } else if (palmMode === "standard" && isPenActiveRef.current) {
+          return;
+        }
       }
 
       canvas.setPointerCapture(e.pointerId);
 
-      // Detect Huion side barrel button or eraser tail
-      const isBarrelPressed =
-        e.pointerType === "pen" &&
-        (e.button === 2 || (e.buttons & 2) !== 0 || (e.buttons & 32) !== 0);
-      const isTailEraser = (e.pointerType as string) === "eraser" || e.button === 5;
-      const isAutoEraser = isBarrelPressed || isTailEraser;
+      // Detect graphics tablet barrel rocker buttons or physical eraser tail
+      const isBarrel = isStylusBarrelButtonPressed(e);
+      const isTail = isStylusEraserTip(e);
+      const barrelAction = tabletSettingsRef.current.barrelButtonAction;
+
+      const isAutoEraser = isTail || (isBarrel && barrelAction === "erase");
+      const isAutoLasso = isBarrel && barrelAction === "lasso";
+      const isAutoPan = isBarrel && barrelAction === "pan";
       const isEraseMode = isAutoEraser || modeRef.current === "erase";
 
       // 1. Pan Action — disabled in finite sheet mode (view is locked to slide)
       const isPanTriggered =
         !isEraseMode &&
         !isFiniteModeRef.current &&
-        (isSpaceHeldRef.current || e.button === 1 || modeRef.current === "pan");
+        (isAutoPan || isSpaceHeldRef.current || e.button === 1 || modeRef.current === "pan");
 
       if (isPanTriggered) {
         isPanningRef.current = true;
@@ -2956,7 +2995,7 @@ export const Whiteboard: React.FC = () => {
       }
 
       // 2. Lasso Selection Tool
-      if (modeRef.current === "lasso" && !isEraseMode) {
+      if ((isAutoLasso || modeRef.current === "lasso") && !isEraseMode) {
         const curSel = selectedIdsRef.current;
         if (hasSelectedElements(curSel)) {
           const selStrokes = strokesRef.current.filter((s) => curSel.strokeIds.has(s.id));
@@ -3145,7 +3184,13 @@ export const Whiteboard: React.FC = () => {
       isDrawingRef.current = true;
       snapshotBeforeGestureRef.current = takeSnapshot();
       const currentMode = modeRef.current;
-      const pressure = e.pressure > 0 ? e.pressure : 0.5;
+      const rawPressure = e.pressure > 0 ? e.pressure : 0.5;
+      const pressure = calibratePressure(
+        rawPressure,
+        e.pointerType,
+        tabletSettingsRef.current.pressureCurve,
+        tabletSettingsRef.current.minPressureThreshold
+      );
 
       if (holdTimeoutRef.current) {
         clearTimeout(holdTimeoutRef.current);
@@ -3219,7 +3264,30 @@ export const Whiteboard: React.FC = () => {
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (e.pointerType === "touch" && isPenActiveRef.current) return;
+      const palmMode = tabletSettingsRef.current.palmRejection;
+      const isRecentPen = Date.now() - lastPenTimeRef.current < 1200;
+      if (
+        e.pointerType === "touch" &&
+        touchPointersRef.current.size < 2 &&
+        (palmMode === "strict" ? (isPenActiveRef.current || isRecentPen) : isPenActiveRef.current)
+      ) {
+        return;
+      }
+
+      if (e.pointerType === "pen") {
+        isPenActiveRef.current = true;
+        lastPenTimeRef.current = Date.now();
+        setIsLiveStylus(true);
+        if (e.pressure > 0) {
+          const cal = calibratePressure(
+            e.pressure,
+            e.pointerType,
+            tabletSettingsRef.current.pressureCurve,
+            tabletSettingsRef.current.minPressureThreshold
+          );
+          setLivePressure(cal);
+        }
+      }
 
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -3545,7 +3613,13 @@ export const Whiteboard: React.FC = () => {
         }
 
         const world = screenToWorld(sx, sy);
-        const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
+        const rawPressure = ev.pressure > 0 ? ev.pressure : 0.5;
+        const pressure = calibratePressure(
+          rawPressure,
+          ev.pointerType,
+          tabletSettingsRef.current.pressureCurve,
+          tabletSettingsRef.current.minPressureThreshold
+        );
 
         activeStrokeRef.current.points.push({
           x: world.x,
@@ -3601,6 +3675,15 @@ export const Whiteboard: React.FC = () => {
     } else {
       touchPointersRef.current.clear();
       pinchGestureRef.current = null;
+    }
+
+    if (e?.pointerType === "pen") {
+      lastPenTimeRef.current = Date.now();
+      setTimeout(() => {
+        if (Date.now() - lastPenTimeRef.current >= 1100) {
+          isPenActiveRef.current = false;
+        }
+      }, 1200);
     }
     if (isPanningRef.current) isPanningRef.current = false;
     if (isDraggingImageRef.current) {
@@ -3944,7 +4027,7 @@ export const Whiteboard: React.FC = () => {
       />
 
       {/* ── Dynamic Brush / Eraser / Highlighter Nib Hover Indicator ── */}
-      {hoverCursorPos && !isPointerDownState && (mode === "draw" || mode === "highlighter" || mode === "erase") && (
+      {tabletSettings.showHoverCursor && hoverCursorPos && !isPointerDownState && (mode === "draw" || mode === "highlighter" || mode === "erase") && (
         <div
           className="fixed pointer-events-none z-30 -translate-x-1/2 -translate-y-1/2 transition-transform duration-75"
           style={{
@@ -4058,6 +4141,7 @@ export const Whiteboard: React.FC = () => {
         isSplitScreenActive={isSplitScreenActive}
         onClear={handleClear}
         onOpenShortcuts={() => setShortcutsOpen(true)}
+        onOpenTabletSettings={() => setIsTabletModalOpen(true)}
         isPenActive={isLiveStylus}
         currentPressure={livePressure}
         onExportTapboard={handleExportTapboard}
@@ -4527,6 +4611,14 @@ export const Whiteboard: React.FC = () => {
         isOpen={isStemBarOpen}
         onClose={() => setIsStemBarOpen(false)}
         onInsertSymbol={handleInsertStemSymbol}
+      />
+
+      {/* ── Professional Stylus & Pen Tablet Calibration Studio ── */}
+      <PenTabletModal
+        isOpen={isTabletModalOpen}
+        onClose={() => setIsTabletModalOpen(false)}
+        settings={tabletSettings}
+        onSettingsChange={handleTabletSettingsChange}
       />
     </div>
   );

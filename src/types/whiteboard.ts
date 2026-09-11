@@ -190,6 +190,23 @@ export type ResizeHandle = "nw" | "ne" | "sw" | "se";
 /** Stylus tablet pressure calibration curves */
 export type PressureCurve = "soft" | "medium" | "firm" | "off";
 
+/** Palm rejection sensitivity levels for graphic tablet displays & touchscreens */
+export type PalmRejectionMode = "strict" | "standard" | "off";
+
+/** Action triggered when holding the stylus rocker / side barrel button */
+export type BarrelButtonAction = "erase" | "lasso" | "pan";
+
+/** Comprehensive Hardware Pen Tablet & Stylus Settings */
+export interface TabletSettings {
+  pressureCurve: PressureCurve;
+  palmRejection: PalmRejectionMode;
+  barrelButtonAction: BarrelButtonAction;
+  smoothing: number; // 0.1 to 1.0
+  streamline: number; // 0.1 to 1.0
+  showHoverCursor: boolean;
+  minPressureThreshold: number; // 0.0 to 0.15
+}
+
 /** A single presentation slide in the educator's lecture deck */
 export interface Slide {
   id: string;
