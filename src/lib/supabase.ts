@@ -128,7 +128,12 @@ export async function saveDrawingToCloud(payload: {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === "PGRST205" || error.message?.includes("schema cache") || error.message?.includes("public.drawings")) {
+        throw new Error("Database table 'drawings' has not been created yet in your Supabase project. Please run the provided supabase_schema.sql in your Supabase SQL Editor.");
+      }
+      throw error;
+    }
     return data;
   } else {
     // Insert new row
@@ -138,7 +143,12 @@ export async function saveDrawingToCloud(payload: {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === "PGRST205" || error.message?.includes("schema cache") || error.message?.includes("public.drawings")) {
+        throw new Error("Database table 'drawings' has not been created yet in your Supabase project. Please run the provided supabase_schema.sql in your Supabase SQL Editor.");
+      }
+      throw error;
+    }
     return data;
   }
 }
@@ -157,6 +167,9 @@ export async function fetchUserDrawings(): Promise<CloudDrawingRecord[]> {
 
   if (error) {
     console.error("[Tapboard Supabase] Error fetching user drawings:", error);
+    if (error.code === "PGRST205" || error.message?.includes("schema cache") || error.message?.includes("public.drawings")) {
+      throw new Error("Database table 'drawings' has not been created yet in your Supabase project. Please run the provided supabase_schema.sql in your Supabase SQL Editor.");
+    }
     throw error;
   }
 
