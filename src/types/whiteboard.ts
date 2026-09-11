@@ -214,6 +214,51 @@ export interface TabletSettings {
   minPressureThreshold: number; // 0.0 to 0.15
 }
 
+/** Interactive Math-to-Life simulation types */
+export type SimType = "wave" | "pendulum" | "ramp" | "spring" | "orbit";
+
+export interface SimulationParams {
+  // Wave
+  amplitude?: number;
+  frequency?: number;
+  wavelength?: number;
+  waveType?: "traveling" | "standing";
+
+  // Pendulum
+  length?: number;
+  gravity?: number;
+  damping?: number;
+  angle?: number;
+  showVectors?: boolean;
+  showEnergy?: boolean;
+
+  // Ramp
+  rampAngle?: number;
+  friction?: number;
+  blockMass?: number;
+  showForces?: boolean;
+
+  // Spring
+  springK?: number;
+  mass?: number;
+
+  // Orbit
+  eccentricity?: number;
+  orbitSpeed?: number;
+}
+
+export interface PhysicsSimulationItem {
+  id: string;
+  type: SimType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  title: string;
+  isRunning: boolean;
+  params: SimulationParams;
+}
+
 /** A single presentation slide in the educator's lecture deck */
 export interface Slide {
   id: string;
@@ -224,6 +269,7 @@ export interface Slide {
   notes: StickyNote[];
   images: PastedImage[];
   maths?: MathItem[];
+  simulations?: PhysicsSimulationItem[];
   gridStyle?: GridStyle;
   boardTheme?: BoardTheme;
   backgroundColor?: string;

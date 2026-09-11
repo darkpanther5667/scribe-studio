@@ -80,7 +80,7 @@ import {
   type CloudDrawingRecord,
 } from "../lib/supabase";
 import type { User } from "@supabase/supabase-js";
-import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon } from "lucide-react";
+import { LassoSelect, Copy, Trash2, X, StickyNote as StickyNoteIcon, Sparkles } from "lucide-react";
 import { ClassroomTimer } from "./ClassroomTimer";
 import { PresentationCurtain } from "./PresentationCurtain";
 import { VirtualRuler, type RulerState } from "./VirtualRuler";
@@ -91,6 +91,10 @@ import { EducatorCameraPiP } from "./EducatorCameraPiP";
 import { ClassroomPollWidget } from "./ClassroomPollWidget";
 import { StemSymbolBar } from "./StemSymbolBar";
 import { PenTabletModal } from "./PenTabletModal";
+import { PhysicsSimulationCard } from "./PhysicsSimulationCard";
+import { BringToLifeModal } from "./BringToLifeModal";
+import { createPhysicsSimulation } from "../utils/physicsSimulation";
+import type { PhysicsSimulationItem, SimType } from "../types/whiteboard";
 import {
   loadTabletSettings,
   saveTabletSettings,
@@ -290,6 +294,7 @@ interface BoardSnapshot {
   notes: StickyNote[];
   images: PastedImage[];
   maths: MathItem[];
+  simulations?: PhysicsSimulationItem[];
 }
 
 export const Whiteboard: React.FC = () => {
@@ -368,6 +373,14 @@ export const Whiteboard: React.FC = () => {
 
   const [isMathModalOpen, setIsMathModalOpen] = useState(false);
   const [pendingMathPos, setPendingMathPos] = useState<{ x: number; y: number } | null>(null);
+
+  // ── Math-to-Life Interactive Physics Simulations ────────────────────────────
+  const [simulations, setSimulations] = useState<PhysicsSimulationItem[]>([]);
+  const simulationsRef = useRef<PhysicsSimulationItem[]>(simulations);
+  simulationsRef.current = simulations;
+
+  const [isLifeModalOpen, setIsLifeModalOpen] = useState(false);
+  const [pendingLifeSpawnPos, setPendingLifeSpawnPos] = useState<{ x: number; y: number } | null>(null);
 
   // ── Educator Studio Superpower States ──────────────────────────────────────
   const [isTimerOpen, setIsTimerOpen] = useState(false);
@@ -1414,6 +1427,7 @@ export const Whiteboard: React.FC = () => {
       notes: [...notesRef.current],
       images: [...imagesRef.current],
       maths: [...mathsRef.current],
+      simulations: simulationsRef.current.map((s) => ({ ...s, params: { ...s.params } })),
     };
   }, []);
 
@@ -1432,6 +1446,7 @@ export const Whiteboard: React.FC = () => {
       notes: [...notesRef.current],
       images: [...imagesRef.current],
       maths: [...mathsRef.current],
+      simulations: [...simulationsRef.current],
     };
 
     const nextDeck = [...deck];
@@ -1449,6 +1464,8 @@ export const Whiteboard: React.FC = () => {
     imagesRef.current = targetSlide.images;
     const targetMaths = targetSlide.maths || [];
     mathsRef.current = targetMaths;
+    const targetSims = targetSlide.simulations || [];
+    simulationsRef.current = targetSims;
 
     setStrokes(targetSlide.strokes);
     setShapes(targetSlide.shapes);
@@ -1456,6 +1473,7 @@ export const Whiteboard: React.FC = () => {
     setNotes(targetSlide.notes);
     setImages(targetSlide.images);
     setMaths(targetMaths);
+    setSimulations(targetSims);
 
     selectedIdsRef.current = EMPTY_SELECTION;
     setSelectedIds(EMPTY_SELECTION);
@@ -1893,12 +1911,14 @@ export const Whiteboard: React.FC = () => {
     notesRef.current = [];
     imagesRef.current = [];
     mathsRef.current = [];
+    simulationsRef.current = [];
     setStrokes([]);
     setShapes([]);
     setTexts([]);
     setNotes([]);
     setImages([]);
     setMaths([]);
+    setSimulations([]);
     setSelectedImageId(null);
     selectedIdsRef.current = EMPTY_SELECTION;
     setSelectedIds(EMPTY_SELECTION);
@@ -2178,12 +2198,15 @@ export const Whiteboard: React.FC = () => {
     imagesRef.current = snap.images;
     const snapMaths = snap.maths || [];
     mathsRef.current = snapMaths;
+    const snapSims = snap.simulations || [];
+    simulationsRef.current = snapSims;
     setStrokes(snap.strokes);
     setShapes(snap.shapes);
     setTexts(snap.texts);
     setNotes(snap.notes);
     setImages(snap.images);
     setMaths(snapMaths);
+    setSimulations(snapSims);
     selectedIdsRef.current = EMPTY_SELECTION;
     setSelectedIds(EMPTY_SELECTION);
     scheduleRedraw();
@@ -2826,6 +2849,54 @@ export const Whiteboard: React.FC = () => {
     },
     [takeSnapshot, scheduleRedraw]
   );
+
+  // ── Math-to-Life Interactive Physics Simulation Handlers ───────────────────────
+  const handleSpawnSimulation = useCallback(
+    (type: SimType) => {
+      setUndoStack((u) => [...u, takeSnapshot()]);
+      setRedoStack([]);
+
+      let spawnX: number;
+      let spawnY: number;
+
+      if (pendingLifeSpawnPos) {
+        spawnX = pendingLifeSpawnPos.x;
+        spawnY = pendingLifeSpawnPos.y;
+      } else {
+        const cam = cameraRef.current;
+        const canvas = canvasRef.current;
+        const centerX = canvas ? (canvas.offsetWidth / 2 - cam.x) / cam.zoom : 0;
+        const centerY = canvas ? (canvas.offsetHeight / 2 - cam.y) / cam.zoom : 0;
+        spawnX = centerX - 190;
+        spawnY = centerY - 140;
+      }
+
+      const newSim = createPhysicsSimulation(type, spawnX, spawnY);
+      const next = [...simulationsRef.current, newSim];
+      simulationsRef.current = next;
+      setSimulations(next);
+      setPendingLifeSpawnPos(null);
+    },
+    [pendingLifeSpawnPos, takeSnapshot]
+  );
+
+  const handleUpdateSimulation = useCallback((updated: PhysicsSimulationItem) => {
+    setSimulations((prev) => {
+      const next = prev.map((s) => (s.id === updated.id ? updated : s));
+      simulationsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const handleDeleteSimulation = useCallback((id: string) => {
+    setUndoStack((u) => [...u, takeSnapshot()]);
+    setRedoStack([]);
+    setSimulations((prev) => {
+      const next = prev.filter((s) => s.id !== id);
+      simulationsRef.current = next;
+      return next;
+    });
+  }, [takeSnapshot]);
 
   const handleStampPoll = useCallback(
     (pollData: { question: string; options: string[]; correctIndex: number }) => {
@@ -3992,12 +4063,14 @@ export const Whiteboard: React.FC = () => {
     notesRef.current = [];
     imagesRef.current = [];
     mathsRef.current = [];
+    simulationsRef.current = [];
     setStrokes([]);
     setShapes([]);
     setTexts([]);
     setNotes([]);
     setImages([]);
     setMaths([]);
+    setSimulations([]);
     setSelectedImageId(null);
     selectedIdsRef.current = EMPTY_SELECTION;
     setSelectedIds(EMPTY_SELECTION);
@@ -4211,6 +4284,10 @@ export const Whiteboard: React.FC = () => {
         onClear={handleClear}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenTabletSettings={() => setIsTabletModalOpen(true)}
+        onOpenLifeSimulators={() => {
+          setPendingLifeSpawnPos(null);
+          setIsLifeModalOpen(true);
+        }}
         isPenActive={isLiveStylus}
         currentPressure={livePressure}
         onExportTapboard={handleExportTapboard}
@@ -4453,6 +4530,23 @@ export const Whiteboard: React.FC = () => {
           </div>
 
           <button
+            onClick={() => {
+              if (currentSelectionBbox) {
+                setPendingLifeSpawnPos({
+                  x: currentSelectionBbox.centerX - 190,
+                  y: currentSelectionBbox.centerY - 140,
+                });
+              }
+              setIsLifeModalOpen(true);
+            }}
+            title="Convert sketch/formula to live interactive physics simulation"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-cyan-500/30 to-violet-500/30 hover:from-cyan-500/50 hover:to-violet-500/50 text-cyan-200 hover:text-white border border-cyan-400/40 shadow-sm shadow-cyan-500/20 transition-all text-xs font-semibold"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+            <span>Bring to Life</span>
+          </button>
+
+          <button
             onClick={duplicateSelection}
             title="Duplicate selection (Ctrl+D)"
             className="flex items-center gap-1.5 px-2 py-1 rounded-xl hover:bg-white/10 text-zinc-300 hover:text-white transition-all text-xs"
@@ -4688,6 +4782,24 @@ export const Whiteboard: React.FC = () => {
         onClose={() => setIsTabletModalOpen(false)}
         settings={tabletSettings}
         onSettingsChange={handleTabletSettingsChange}
+      />
+
+      {/* ── Math-to-Life Interactive Physics Simulation Overlays ── */}
+      {simulations.map((sim) => (
+        <PhysicsSimulationCard
+          key={sim.id}
+          item={sim}
+          camera={camera}
+          onUpdate={handleUpdateSimulation}
+          onDelete={handleDeleteSimulation}
+        />
+      ))}
+
+      {/* ── Math-to-Life Simulation Picker Modal ── */}
+      <BringToLifeModal
+        isOpen={isLifeModalOpen}
+        onClose={() => setIsLifeModalOpen(false)}
+        onSelectSim={handleSpawnSimulation}
       />
     </div>
   );

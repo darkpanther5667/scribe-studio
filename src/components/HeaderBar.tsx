@@ -38,6 +38,7 @@ import {
   Camera,
   Trophy,
   Atom,
+  Sparkles,
 } from "lucide-react";
 import type { GridStyle, BoardTheme } from "../types/whiteboard";
 
@@ -90,6 +91,7 @@ interface HeaderBarProps {
   onToggleSplitScreen?: () => void;
   isSplitScreenActive?: boolean;
   onOpenTabletSettings?: () => void;
+  onOpenLifeSimulators?: () => void;
 }
 
 type DropdownMenu = "file" | "export" | "profile" | "template" | "studio" | "teaching" | null;
@@ -143,6 +145,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onToggleSplitScreen,
   isSplitScreenActive = false,
   onOpenTabletSettings,
+  onOpenLifeSimulators,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
@@ -1281,6 +1284,34 @@ const THEME_OPTIONS: {
                       <div className="text-[10px] text-zinc-400 mt-0.5">Pressure curves, palm rejection & barrel buttons</div>
                     </div>
                   </div>
+                </button>
+              )}
+
+              {/* 7. Math-to-Life Interactive Physics Simulators */}
+              {onOpenLifeSimulators && (
+                <button
+                  onClick={() => {
+                    onOpenLifeSimulators();
+                    setOpenMenu(null);
+                  }}
+                  className="flex items-center justify-between w-full px-2.5 py-2 rounded-xl text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all text-left border-t border-white/10 mt-1 pt-2 group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-gradient-to-tr from-cyan-500/20 to-amber-500/20 text-cyan-300 border border-cyan-400/30">
+                      <Sparkles className="w-4 h-4 text-amber-300 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none text-white group-hover:text-cyan-300 transition-colors">
+                        ⚛️ Math-to-Life Simulators
+                      </div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">
+                        Waves, pendulums, ramps, springs & orbits
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-mono text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
+                    Gizmos
+                  </span>
                 </button>
               )}
             </div>
