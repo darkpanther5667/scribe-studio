@@ -10,7 +10,8 @@ export interface ScribbleDetectionResult {
 }
 
 export function detectScribbleGesture(points: StrokePoint[]): boolean {
-  if (points.length < 12) return false;
+  // A true scratch-out scribble requires multiple rapid zigzags
+  if (points.length < 22) return false;
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   let totalLength = 0;
@@ -32,14 +33,18 @@ export function detectScribbleGesture(points: StrokePoint[]): boolean {
   const height = maxY - minY;
   const diag = Math.hypot(width, height);
 
-  if (diag < 18 || diag > 280) return false;
-  if (totalLength < diag * 2.2) return false;
+  // Bounds must be within realistic single-item scratch-out size
+  if (diag < 20 || diag > 260) return false;
+
+  // Real scribbling has very high path density packed into a small area
+  // Normal handwriting letters (m, w, cursive) have totalLength / diag between 1.5 and 2.8
+  if (totalLength < diag * 3.8) return false;
 
   let xReversals = 0;
   let yReversals = 0;
   let lastDx = 0;
   let lastDy = 0;
-  const minThreshold = 4;
+  const minThreshold = 5;
 
   for (let i = 2; i < points.length; i++) {
     const dx = points[i].x - points[i - 2].x;
@@ -60,7 +65,9 @@ export function detectScribbleGesture(points: StrokePoint[]): boolean {
     }
   }
 
-  return xReversals >= 3 || yReversals >= 3;
+  // Must have at least 6 directional reversals (back-and-forth scratch)
+  // Prevents letters like "m", "w", "3", "8", Greek letters, and cursive loops from triggering
+  return xReversals >= 6 || yReversals >= 6 || (xReversals >= 4 && yReversals >= 4);
 }
 
 export function findScribbleTargets(
@@ -88,7 +95,7 @@ export function findScribbleTargets(
     if (p.y > maxY) maxY = p.y;
   }
 
-  const pad = 12;
+  const pad = 6;
   const box = {
     x1: minX - pad,
     y1: minY - pad,
@@ -102,14 +109,17 @@ export function findScribbleTargets(
   const erasedNoteIds: string[] = [];
 
   for (const stroke of strokes) {
-    let hit = false;
+    // Only erase if scribble directly covers a significant portion of the target stroke (at least 35% of its points)
+    let insideCount = 0;
     for (const pt of stroke.points) {
       if (pt.x >= box.x1 && pt.x <= box.x2 && pt.y >= box.y1 && pt.y <= box.y2) {
-        hit = true;
-        break;
+        insideCount++;
       }
     }
-    if (hit) erasedStrokeIds.push(stroke.id);
+    const threshold = Math.max(3, Math.min(stroke.points.length * 0.35, 12));
+    if (insideCount >= threshold) {
+      erasedStrokeIds.push(stroke.id);
+    }
   }
 
   for (const shape of shapes) {
@@ -117,8 +127,11 @@ export function findScribbleTargets(
     const sMaxX = Math.max(shape.x1, shape.x2);
     const sMinY = Math.min(shape.y1, shape.y2);
     const sMaxY = Math.max(shape.y1, shape.y2);
+    const centerX = (sMinX + sMaxX) / 2;
+    const centerY = (sMinY + sMaxY) / 2;
 
-    if (!(sMaxX < box.x1 || sMinX > box.x2 || sMaxY < box.y1 || sMinY > box.y2)) {
+    // Center of shape must be inside the scribble box
+    if (centerX >= box.x1 && centerX <= box.x2 && centerY >= box.y1 && centerY <= box.y2) {
       erasedShapeIds.push(shape.id);
     }
   }
@@ -127,13 +140,19 @@ export function findScribbleTargets(
     const fs = text.fontSize || 20;
     const tW = Math.max(text.text.length * fs * 0.6, 60);
     const tH = Math.max(fs * 1.2, 24);
-    if (!(text.x + tW < box.x1 || text.x > box.x2 || text.y + tH < box.y1 || text.y > box.y2)) {
+    const centerX = text.x + tW / 2;
+    const centerY = text.y + tH / 2;
+
+    if (centerX >= box.x1 && centerX <= box.x2 && centerY >= box.y1 && centerY <= box.y2) {
       erasedTextIds.push(text.id);
     }
   }
 
   for (const note of notes) {
-    if (!(note.x + note.width < box.x1 || note.x > box.x2 || note.y + note.height < box.y1 || note.y > box.y2)) {
+    const centerX = note.x + note.width / 2;
+    const centerY = note.y + note.height / 2;
+
+    if (centerX >= box.x1 && centerX <= box.x2 && centerY >= box.y1 && centerY <= box.y2) {
       erasedNoteIds.push(note.id);
     }
   }

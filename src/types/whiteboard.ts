@@ -197,7 +197,7 @@ export type PressureCurve = "soft" | "medium" | "firm" | "off";
 export type PalmRejectionMode = "strict" | "standard" | "off";
 
 /** Action triggered when holding the stylus rocker / side barrel button */
-export type BarrelButtonAction = "erase" | "lasso" | "pan";
+export type BarrelButtonAction = "erase" | "lasso" | "pan" | "none";
 
 /** Intelligent handwriting curve smoothing and micro-jitter stabilization */
 export type StabilizerLevel = "off" | "smooth" | "calligraphy";
@@ -208,6 +208,7 @@ export interface TabletSettings {
   palmRejection: PalmRejectionMode;
   barrelButtonAction: BarrelButtonAction;
   stabilizerLevel?: StabilizerLevel;
+  enableScribbleErase?: boolean;
   smoothing: number; // 0.1 to 1.0
   streamline: number; // 0.1 to 1.0
   showHoverCursor: boolean;

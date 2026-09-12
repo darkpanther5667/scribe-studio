@@ -458,12 +458,12 @@ export const PenTabletModal: React.FC<PenTabletModalProps> = ({
             <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
               Stylus Side Rocker / Barrel Button
             </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
                 {
                   value: "erase",
                   label: "🧹 Quick Eraser",
-                  desc: "Holding the side barrel button erases strokes instantly.",
+                  desc: "Holding side button erases strokes instantly.",
                 },
                 {
                   value: "lasso",
@@ -473,7 +473,12 @@ export const PenTabletModal: React.FC<PenTabletModalProps> = ({
                 {
                   value: "pan",
                   label: "✋ Pan Blackboard",
-                  desc: "Holding barrel button drags the canvas smoothly.",
+                  desc: "Holding barrel button drags canvas smoothly.",
+                },
+                {
+                  value: "none",
+                  label: "🚫 Disabled",
+                  desc: "Ignore side rocker clicks to prevent tool changes.",
                 },
               ].map((b) => (
                 <button
@@ -493,6 +498,34 @@ export const PenTabletModal: React.FC<PenTabletModalProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* 5.5. Scribble-to-Erase Gesture */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/10">
+            <div>
+              <div className="font-semibold text-xs text-white flex items-center gap-2">
+                <span>Natural Scribble-to-Erase Gesture</span>
+                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${localSettings.enableScribbleErase ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-white/5 text-zinc-500"}`}>
+                  {localSettings.enableScribbleErase ? "Active" : "Protected"}
+                </span>
+              </div>
+              <div className="text-[10px] text-zinc-400 mt-0.5 max-w-md">
+                Scratch back-and-forth repeatedly (6+ zigzags) across an element to delete it. Keep <strong className="text-zinc-300">OFF</strong> (default) for pure cursive handwriting without accidental deletions.
+              </div>
+            </div>
+            <button
+              onClick={() => updateSetting("enableScribbleErase", !localSettings.enableScribbleErase)}
+              className={`
+                px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ml-4
+                ${
+                  localSettings.enableScribbleErase
+                    ? "bg-amber-400 text-zinc-950 shadow-sm shadow-amber-400/30"
+                    : "bg-white/10 text-zinc-400 hover:text-white"
+                }
+              `}
+            >
+              {localSettings.enableScribbleErase ? "ON" : "OFF"}
+            </button>
           </div>
 
           {/* 6. Precision Hover Cursor */}

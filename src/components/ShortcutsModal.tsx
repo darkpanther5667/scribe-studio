@@ -26,8 +26,8 @@ const SHORTCUT_CATEGORIES: ShortcutCategory[] = [
       { keys: ["E"], label: "Switch to Precision Eraser" },
       { keys: ["1", "2", "3"], label: "Activate Favorite Pen slot 1, 2, or 3", badge: "NEW" },
       { keys: ["[", "]"], label: "Decrease / Increase Nib Thickness", badge: "NEW" },
-      { keys: ["Double-Tap"], label: "Stylus / Touch toggle between Pen & Eraser", badge: "NEW" },
-      { keys: ["Scribble"], label: "Zigzag back and forth to auto-erase targeted elements", badge: "GESTURE" },
+      { keys: ["Barrel Rocker"], label: "Hold stylus side button to quickly erase or lasso", badge: "TABLET" },
+      { keys: ["Scribble"], label: "Scratch back and forth to erase (Enable in Tablet Settings)", badge: "GESTURE" },
     ],
   },
   {

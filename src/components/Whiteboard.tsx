@@ -608,7 +608,6 @@ export const Whiteboard: React.FC = () => {
   const [isZenMode, setIsZenMode] = useState(false);
   const [hoverCursorPos, setHoverCursorPos] = useState<{ x: number; y: number } | null>(null);
   const [isPointerDownState, setIsPointerDownState] = useState(false);
-  const lastTapRef = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 });
 
   const handleSelectFavoritePen = useCallback((index: number) => {
     const pen = favoritePens[index];
@@ -2983,21 +2982,6 @@ export const Whiteboard: React.FC = () => {
 
       setIsPointerDownState(true);
 
-      // Stylus / Touch double-tap detection to switch between pen & eraser
-      const now = Date.now();
-      const dt = now - lastTapRef.current.time;
-      const ddist = Math.hypot(e.clientX - lastTapRef.current.x, e.clientY - lastTapRef.current.y);
-      if (dt < 320 && ddist < 25) {
-        if (modeRef.current === "erase") {
-          setMode("draw");
-          modeRef.current = "draw";
-        } else if (modeRef.current === "draw" || modeRef.current === "highlighter") {
-          setMode("erase");
-          modeRef.current = "erase";
-        }
-      }
-      lastTapRef.current = { time: now, x: e.clientX, y: e.clientY };
-
       const rect = canvas.getBoundingClientRect();
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
@@ -4085,8 +4069,12 @@ export const Whiteboard: React.FC = () => {
         }
       }
 
-      // Check for natural scribble-to-erase gesture
-      if (!finished.isHighlighter && finished.points.length >= 12) {
+      // Check for natural scribble-to-erase gesture (only if explicitly enabled in tablet settings)
+      if (
+        tabletSettingsRef.current.enableScribbleErase &&
+        !finished.isHighlighter &&
+        finished.points.length >= 22
+      ) {
         const scribble = findScribbleTargets(
           finished.points,
           strokesRef.current,
@@ -4100,37 +4088,55 @@ export const Whiteboard: React.FC = () => {
             setUndoStack((u) => [...u, snapshotBeforeGestureRef.current!]);
             setRedoStack([]);
           }
+          let erasedCount = 0;
           if (scribble.erasedStrokeIds.length > 0) {
             scribble.erasedStrokeIds.forEach((id) => invalidateStrokePath(id));
             const set = new Set(scribble.erasedStrokeIds);
             const next = strokesRef.current.filter((s) => !set.has(s.id));
             strokesRef.current = next;
             setStrokes(next);
+            erasedCount += scribble.erasedStrokeIds.length;
           }
           if (scribble.erasedShapeIds.length > 0) {
             const set = new Set(scribble.erasedShapeIds);
             const next = shapesRef.current.filter((s) => !set.has(s.id));
             shapesRef.current = next;
             setShapes(next);
+            erasedCount += scribble.erasedShapeIds.length;
           }
           if (scribble.erasedTextIds.length > 0) {
             const set = new Set(scribble.erasedTextIds);
             const next = textsRef.current.filter((t) => !set.has(t.id));
             textsRef.current = next;
             setTexts(next);
+            erasedCount += scribble.erasedTextIds.length;
           }
           if (scribble.erasedNoteIds.length > 0) {
             const set = new Set(scribble.erasedNoteIds);
             const next = notesRef.current.filter((n) => !set.has(n.id));
             notesRef.current = next;
             setNotes(next);
+            erasedCount += scribble.erasedNoteIds.length;
           }
           scheduleRedraw();
+          showToast("Scribble Erased", `Removed ${erasedCount} item(s) under gesture (Ctrl+Z to undo)`, "info");
           return;
         }
       }
 
-      if (finished.points.length > 1) {
+      // Preserve all valid strokes, including single-point taps (dots on i, decimals, periods)
+      if (finished.points.length >= 1) {
+        // If single tap, synthesize a micro-offset partner point for smooth round rasterization
+        if (finished.points.length === 1) {
+          const p = finished.points[0];
+          finished.points.push({
+            x: p.x + 0.15,
+            y: p.y + 0.15,
+            pressure: p.pressure,
+            time: (p.time || performance.now()) + 1,
+          });
+        }
+
         // Apply Catmull-Rom spline smoothing and micro-jitter stabilization
         const stabilizer = tabletSettingsRef.current.stabilizerLevel ?? "smooth";
         finished.points = smoothStrokePoints(finished.points, stabilizer);
