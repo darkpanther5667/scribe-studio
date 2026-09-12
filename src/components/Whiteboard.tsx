@@ -93,6 +93,8 @@ import { StemSymbolBar } from "./StemSymbolBar";
 import { PenTabletModal } from "./PenTabletModal";
 import { PhysicsSimulationCard } from "./PhysicsSimulationCard";
 import { BringToLifeModal } from "./BringToLifeModal";
+import { AboutStudioModal } from "./AboutStudioModal";
+import { useToast } from "./ToastHub";
 import { createPhysicsSimulation } from "../utils/physicsSimulation";
 import type { PhysicsSimulationItem, SimType } from "../types/whiteboard";
 import {
@@ -566,6 +568,8 @@ export const Whiteboard: React.FC = () => {
     );
   });
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const { showToast } = useToast();
   const [livePressure, setLivePressure] = useState(0);
   const [isLiveStylus, setIsLiveStylus] = useState(false);
 
@@ -580,7 +584,8 @@ export const Whiteboard: React.FC = () => {
     setTabletSettings(next);
     tabletSettingsRef.current = next;
     saveTabletSettings(next);
-  }, []);
+    showToast("Stylus Calibrated", `Pressure curve: ${next.pressureCurve} • 8192 levels`, "info");
+  }, [showToast]);
 
   // ── Favorite Pens, Color Studio, and Zen Mode ───────────────────────────────
   const [favoritePens, setFavoritePens] = useState<FavoritePen[]>(() => loadFavoritePens());
@@ -1799,12 +1804,14 @@ export const Whiteboard: React.FC = () => {
     try {
       const latestDeck = syncCurrentSlideToDeck();
       await exportClassNotesPdf(latestDeck, lectureTitle);
+      showToast("Class Notes PDF Exported", `Exported ${latestDeck.length}-slide lecture deck`, "success");
     } catch (err) {
       console.error("Failed to export class notes PDF:", err);
+      showToast("Export Failed", "Could not compile PDF notes", "warning");
     } finally {
       setIsExportingNotes(false);
     }
-  }, [isExportingNotes, syncCurrentSlideToDeck, lectureTitle]);
+  }, [isExportingNotes, syncCurrentSlideToDeck, lectureTitle, showToast]);
 
   // ── Enterprise .tapboard Project Persistence ────────────────────────────────
   const handleExportTapboard = useCallback(() => {
@@ -1816,7 +1823,8 @@ export const Whiteboard: React.FC = () => {
       gridStyle,
       isFiniteMode: isFiniteModeRef.current,
     });
-  }, [syncCurrentSlideToDeck, lectureTitle, gridStyle]);
+    showToast("Session Saved", `Exported "${lectureTitle}.tapboard"`, "success");
+  }, [syncCurrentSlideToDeck, lectureTitle, gridStyle, showToast]);
 
   const handleImportTapboard = useCallback(
     async (file: File) => {
@@ -1828,7 +1836,9 @@ export const Whiteboard: React.FC = () => {
         setGridStyle(project.gridStyle);
         setIsFiniteMode(project.isFiniteMode);
         isFiniteModeRef.current = project.isFiniteMode;
-
+        loadSlide(project.slides[project.currentSlideIndex || 0] || project.slides[0]);
+        setCurrentSlideIndex(project.currentSlideIndex || 0);
+        showToast("Session Loaded", `Opened lecture "${project.title}"`, "success");
         const targetIdx = Math.min(project.currentSlideIndex, project.slides.length - 1);
         setCurrentSlideIndex(targetIdx);
         currentSlideIndexRef.current = targetIdx;
@@ -1861,13 +1871,13 @@ export const Whiteboard: React.FC = () => {
         isFiniteMode,
       });
       setActiveCloudDrawingId(savedRow.id);
-      alert(`Lecture "${savedRow.title}" successfully saved to Supabase Cloud!`);
+      showToast("Synced to Cloud", `Lecture "${savedRow.title}" backed up to Supabase`, "success");
     } catch (err: any) {
-      alert("Failed to save to cloud: " + (err?.message || "Please check credentials"));
+      showToast("Cloud Sync Error", err?.message || "Please check Supabase credentials", "warning");
     } finally {
       setIsSavingToCloud(false);
     }
-  }, [activeCloudDrawingId, lectureTitle, gridStyle, isFiniteMode, syncCurrentSlideToDeck]);
+  }, [activeCloudDrawingId, lectureTitle, gridStyle, isFiniteMode, syncCurrentSlideToDeck, showToast]);
 
   const handleLoadCloudDrawing = useCallback(
     (record: CloudDrawingRecord) => {
@@ -1885,9 +1895,11 @@ export const Whiteboard: React.FC = () => {
       if (record.slides[0]) {
         loadSlide(record.slides[0]);
       }
+      setIsCloudLibraryOpen(false);
+      showToast("Lecture Loaded", `Opened "${record.title}" from Supabase Cloud`, "success");
       setTimeout(() => handleFitToScreen(), 50);
     },
-    [loadSlide, handleFitToScreen]
+    [loadSlide, showToast, handleFitToScreen]
   );
 
   const handleNewNotebook = useCallback(() => {
@@ -2878,8 +2890,13 @@ export const Whiteboard: React.FC = () => {
       simulationsRef.current = next;
       setSimulations(next);
       setPendingLifeSpawnPos(null);
+      showToast(
+        "✦ Math-to-Life Activated",
+        `Spawned interactive ${newSim.title} simulation`,
+        "sparkle"
+      );
     },
-    [pendingLifeSpawnPos, takeSnapshot]
+    [pendingLifeSpawnPos, takeSnapshot, showToast]
   );
 
   const handleUpdateSimulation = useCallback((updated: PhysicsSimulationItem) => {
@@ -4182,7 +4199,8 @@ export const Whiteboard: React.FC = () => {
     activeShapeRef.current = null;
     laserTrailRef.current = [];
     scheduleRedraw();
-  }, [takeSnapshot, scheduleRedraw]);
+    showToast("Blackboard Cleared", "Slide contents reset (Ctrl+Z to undo)", "info");
+  }, [takeSnapshot, scheduleRedraw, showToast]);
 
   // ── Export Board Snapshot to PNG ────────────────────────────────────────────
   const handleExport = useCallback(() => {
@@ -4202,9 +4220,10 @@ export const Whiteboard: React.FC = () => {
     const dataUrl = exportCanvas.toDataURL("image/png");
     const a = document.createElement("a");
     a.href = dataUrl;
-    a.download = `whiteboard-lecture-${new Date().toISOString().slice(0, 10)}.png`;
+    a.download = `scribe-studio-lecture-${new Date().toISOString().slice(0, 10)}.png`;
     a.click();
-  }, []);
+    showToast("Snapshot Saved", "Slide captured as high-resolution PNG", "success");
+  }, [showToast]);
 
   const getCursorStyle = () => {
     if (isPanningRef.current) return "grabbing";
@@ -4236,13 +4255,15 @@ export const Whiteboard: React.FC = () => {
         currentSlide.texts.length === 0 &&
         currentSlide.notes.length === 0 &&
         currentSlide.images.length === 0 &&
-        (!currentSlide.maths || currentSlide.maths.length === 0))) &&
+        (!currentSlide.maths || currentSlide.maths.length === 0) &&
+        (!currentSlide.simulations || currentSlide.simulations.length === 0))) &&
     strokes.length === 0 &&
     shapes.length === 0 &&
     texts.length === 0 &&
     notes.length === 0 &&
     images.length === 0 &&
     maths.length === 0 &&
+    simulations.length === 0 &&
     !textEditor;
 
   const themeColors = getThemeColors(boardTheme);
@@ -4313,6 +4334,23 @@ export const Whiteboard: React.FC = () => {
               }}
             />
           )}
+        </div>
+      )}
+
+      {/* ── Ambient Educator Canvas Watermark & Quick-Tips (Shown on empty canvas) ── */}
+      {isSlideEmpty && !isZenMode && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-10 pointer-events-none flex flex-col items-center gap-2 text-center opacity-40 select-none transition-opacity duration-300">
+          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.08] backdrop-blur-sm text-[12px] font-medium tracking-wide text-zinc-400">
+            <span className="font-bold text-zinc-300">Scribe Studio</span>
+            <span className="opacity-40">•</span>
+            <span>Space + Drag to Pan</span>
+            <span className="opacity-40">•</span>
+            <span>L for Lasso</span>
+            <span className="opacity-40">•</span>
+            <span>Hold to Snap Shape</span>
+            <span className="opacity-40">•</span>
+            <span>0 to Fit Screen</span>
+          </div>
         </div>
       )}
 
@@ -4387,6 +4425,7 @@ export const Whiteboard: React.FC = () => {
         isSplitScreenActive={isSplitScreenActive}
         onClear={handleClear}
         onOpenShortcuts={() => setShortcutsOpen(true)}
+        onOpenAbout={() => setIsAboutOpen(true)}
         onOpenTabletSettings={() => setIsTabletModalOpen(true)}
         onOpenLifeSimulators={() => {
           setPendingLifeSpawnPos(null);
@@ -4904,6 +4943,18 @@ export const Whiteboard: React.FC = () => {
         isOpen={isLifeModalOpen}
         onClose={() => setIsLifeModalOpen(false)}
         onSelectSim={handleSpawnSimulation}
+      />
+
+      {/* ── About Scribe Studio Modal ── */}
+      <AboutStudioModal
+        isOpen={isAboutOpen}
+        onClose={() => setIsAboutOpen(false)}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+        camera={camera}
+        slideCount={slides.length}
+        strokesCount={strokes.length}
+        tabletSettings={tabletSettings}
+        isPenActive={isLiveStylus}
       />
     </div>
   );

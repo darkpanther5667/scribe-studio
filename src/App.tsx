@@ -1,5 +1,10 @@
 import { Whiteboard } from "./components/Whiteboard";
+import { ToastProvider } from "./components/ToastHub";
 
 export default function App() {
-  return <Whiteboard />;
+  return (
+    <ToastProvider>
+      <Whiteboard />
+    </ToastProvider>
+  );
 }

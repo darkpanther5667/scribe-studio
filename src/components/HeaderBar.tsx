@@ -39,6 +39,7 @@ import {
   Trophy,
   Atom,
   Sparkles,
+  Info,
 } from "lucide-react";
 import type { GridStyle, BoardTheme } from "../types/whiteboard";
 
@@ -92,12 +93,14 @@ interface HeaderBarProps {
   isSplitScreenActive?: boolean;
   onOpenTabletSettings?: () => void;
   onOpenLifeSimulators?: () => void;
+  onOpenAbout?: () => void;
 }
 
 type DropdownMenu = "file" | "export" | "profile" | "template" | "studio" | "teaching" | null;
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   onNewNotebook,
+  onOpenAbout,
   title,
   onTitleChange,
   gridStyle,
@@ -301,22 +304,32 @@ const THEME_OPTIONS: {
 
       {/* ── Left Group: Brand & Document Identity ── */}
       <div className="flex items-center gap-3 min-w-0">
-        {/* Brand Logo */}
-        <div className="flex items-center gap-2.5 pr-3 border-r border-white/[0.08] shrink-0">
-          <div className="relative w-8 h-8 shrink-0">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 shadow-md shadow-cyan-500/25" />
-            <svg viewBox="0 0 32 32" className="absolute inset-0 w-full h-full p-1.5" fill="none">
-              <circle cx="13" cy="16" r="8" stroke="white" strokeWidth="1.5" opacity="0.25"/>
-              <circle cx="13" cy="16" r="4.5" stroke="white" strokeWidth="1.5" opacity="0.5"/>
-              <circle cx="13" cy="16" r="1.8" fill="white"/>
-              <path d="M20 8 L23 11 L16 18 L13.5 18 L13.5 15.5 Z" fill="white" opacity="0.9"/>
-              <path d="M23 8 L24.5 9.5 L22 11 L20 8 Z" fill="white" opacity="0.55"/>
-            </svg>
+        {/* Scribe Studio Brand Identity & Logo Mark */}
+        <button
+          onClick={onOpenAbout}
+          title="About Scribe Studio Pro (v2.4)"
+          className="flex items-center gap-2.5 pr-3 border-r border-white/[0.08] shrink-0 hover:opacity-90 active:scale-95 transition-all text-left group cursor-pointer"
+        >
+          <div className="relative w-8 h-8 shrink-0 rounded-xl bg-gradient-to-br from-cyan-500 via-sky-500 to-indigo-600 p-0.5 shadow-md shadow-cyan-500/20 group-hover:shadow-cyan-500/40 transition-shadow">
+            <div className="w-full h-full rounded-[10px] bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center">
+              <svg viewBox="0 0 32 32" className="w-5 h-5" fill="none">
+                <ellipse cx="16" cy="16" rx="11" ry="5.2" transform="rotate(-28 16 16)" stroke="#38bdf8" strokeWidth="1.4" strokeDasharray="3 1.5" opacity="0.85"/>
+                <circle cx="24" cy="11.5" r="1.8" fill="#38bdf8"/>
+                <path d="M10 22 L13.5 12 L18.5 7 L21 9.5 L16 14.5 L14 18.5 Z" fill="#818cf8"/>
+                <path d="M9.5 22.5 L12 20 L10 18 Z" fill="#38bdf8"/>
+                <circle cx="14.5" cy="14.5" r="0.9" fill="#ffffff"/>
+              </svg>
+            </div>
           </div>
-          <span className="text-[15px] font-bold tracking-tight text-white hidden sm:inline" style={{fontFamily:"'Inter', sans-serif"}}>
-            Tapboard
-          </span>
-        </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[14px] font-bold tracking-tight text-white group-hover:text-cyan-200 transition-colors hidden sm:inline font-sans">
+              Scribe
+            </span>
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-400/30 hidden sm:inline">
+              STUDIO
+            </span>
+          </div>
+        </button>
 
         {/* Editable Lecture Title */}
         <div className="flex items-center gap-2 min-w-0 max-w-[160px] sm:max-w-xs md:max-w-sm">
@@ -491,6 +504,23 @@ const THEME_OPTIONS: {
                     <span className="font-medium">Open Project File</span>
                   </div>
                   <span className="text-[10px] font-mono text-zinc-500">.tapboard</span>
+                </button>
+              )}
+
+              {/* About Scribe Studio */}
+              {onOpenAbout && (
+                <button
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onOpenAbout();
+                  }}
+                  className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-left"
+                >
+                  <Info className="w-4 h-4 text-cyan-400" />
+                  <div className="flex items-center justify-between w-full">
+                    <span>About Scribe Studio</span>
+                    <span className="text-[10px] font-mono text-cyan-400/80 uppercase font-bold">v2.4</span>
+                  </div>
                 </button>
               )}
 
@@ -1460,7 +1490,7 @@ const THEME_OPTIONS: {
         {/* Shortcuts Help Modal Trigger */}
         <button
           onClick={onOpenShortcuts}
-          title="Keyboard Shortcuts & Gestures (?)"
+          title="Keyboard Shortcuts & Gestures (Alt+?)"
           className="
             flex items-center justify-center w-7 h-7 rounded-xl
             text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.1]
@@ -1469,6 +1499,21 @@ const THEME_OPTIONS: {
         >
           <HelpCircle className="w-3.5 h-3.5" />
         </button>
+
+        {/* About Scribe Studio Trigger */}
+        {onOpenAbout && (
+          <button
+            onClick={onOpenAbout}
+            title="About Scribe Studio Pro"
+            className="
+              flex items-center justify-center w-7 h-7 rounded-xl
+              text-zinc-400 hover:text-cyan-300 bg-white/[0.04] hover:bg-white/[0.1]
+              border border-white/5 transition-all active:scale-95
+            "
+          >
+            <Info className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </header>
   );

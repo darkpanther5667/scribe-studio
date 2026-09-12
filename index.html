@@ -2,12 +2,19 @@
 <html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <!-- Tapboard brand favicon — tap ripple + pen nib -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f172a'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%2338bdf8' stroke-width='1.5' opacity='0.3'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='%2338bdf8' stroke-width='1.5' opacity='0.6'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%2338bdf8'/%3E%3Cpath d='M21 9 L23 11 L14 20 L12 20 L12 18 Z' fill='%23e2e8f0'/%3E%3C/svg%3E" />
+    <!-- Scribe Studio Brand Favicon — Sapphire Quill & STEM Orbital Mark -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0' y1='0' x2='32' y2='32' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0%25' stop-color='%230b132b'/%3E%3Cstop offset='100%25' stop-color='%23030712'/%3E%3C/linearGradient%3E%3ClinearGradient id='brand' x1='0' y1='0' x2='32' y2='32' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%23818cf8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23bg)' stroke='%231e293b' stroke-width='1'/%3E%3Cellipse cx='16' cy='16' rx='11' ry='5.2' transform='rotate(-28 16 16)' fill='none' stroke='url(%23brand)' stroke-width='1.2' stroke-dasharray='3 1.5' opacity='0.75'/%3E%3Ccircle cx='24' cy='11.5' r='1.8' fill='%2338bdf8'/%3E%3Cpath d='M10 22 L13.5 12 L18.5 7 L21 9.5 L16 14.5 L14 18.5 Z' fill='url(%23brand)'/%3E%3Cpath d='M9.5 22.5 L12 20 L10 18 Z' fill='%2338bdf8'/%3E%3Ccircle cx='14.5' cy='14.5' r='0.8' fill='%23ffffff'/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0f172a" />
-    <meta name="description" content="Tapboard — High-performance teaching whiteboard for educators. Import PDFs, annotate, present." />
-    <title>Tapboard — Teaching Whiteboard</title>
+    <meta name="theme-color" content="#090d16" />
+    <meta name="application-name" content="Scribe Studio" />
+    <meta name="description" content="Scribe Studio — High-performance teaching whiteboard with Math-to-Life interactive physics simulations, 8192-level pen tablet support, and Unacademy-grade presentation decks." />
+    
+    <!-- OpenGraph / Social Metadata -->
+    <meta property="og:title" content="Scribe Studio — Pro Live Whiteboard & STEM Canvas" />
+    <meta property="og:description" content="Turn static sketches into live 60 FPS simulations. Professional teaching whiteboard for educators." />
+    <meta property="og:type" content="website" />
+
+    <title>Scribe Studio — Pro Live Whiteboard & STEM Canvas</title>
 
     <!-- Typography: Inter for UI + Caveat for handwriting text tool -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,6 +37,21 @@
       }
       code, kbd, samp, pre {
         font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+      }
+      /* Custom elegant scrollbar for glassmorphic drawers & modals */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.14);
+        border-radius: 9999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.28);
       }
     </style>
   </head>
