@@ -3,15 +3,17 @@ import type { PressureCurve, TabletSettings } from "../types/whiteboard";
 export const TABLET_SETTINGS_STORAGE_KEY = "tapboard_tablet_settings_v2";
 
 export const DEFAULT_TABLET_SETTINGS: TabletSettings = {
-  pressureCurve: "medium",
+  pressureCurve: "soft",
   palmRejection: "strict",
   barrelButtonAction: "erase",
+  barrelButton2Action: "lasso",
   stabilizerLevel: "smooth",
   enableScribbleErase: false,
+  enableTiltDynamics: true,
   smoothing: 0.6,
   streamline: 0.45,
   showHoverCursor: true,
-  minPressureThreshold: 0.02,
+  minPressureThreshold: 0.012,
 };
 
 export interface TabletBrandProfile {
@@ -23,6 +25,23 @@ export interface TabletBrandProfile {
 
 export const TABLET_PROFILES: TabletBrandProfile[] = [
   {
+    id: "huion-hs64",
+    name: "Huion HS64 (PW100 Pen)",
+    description: "6.3×4\" pad, PW100 battery-free pen, 8192 levels, ±60° tilt shading, 266 PPS high-rate digitizer.",
+    settings: {
+      pressureCurve: "soft",
+      palmRejection: "standard",
+      barrelButtonAction: "erase",
+      barrelButton2Action: "lasso",
+      enableTiltDynamics: true,
+      minPressureThreshold: 0.01,
+      smoothing: 0.58,
+      streamline: 0.42,
+      stabilizerLevel: "smooth",
+      showHoverCursor: true,
+    },
+  },
+  {
     id: "wacom",
     name: "Wacom (Intuos / Cintiq / One)",
     description: "Natural feel with 4096-8192 levels, pro pen barrel mapping, and strict palm rejection.",
@@ -30,20 +49,9 @@ export const TABLET_PROFILES: TabletBrandProfile[] = [
       pressureCurve: "medium",
       palmRejection: "strict",
       barrelButtonAction: "erase",
+      barrelButton2Action: "pan",
+      enableTiltDynamics: true,
       minPressureThreshold: 0.02,
-    },
-  },
-  {
-    id: "huion-hs64",
-    name: "Huion HS64 (PW100 Pen)",
-    description: "6.3x4\" pad, PW100 battery-free stylus, 8192 levels, 266 PPS, and barrel rocker hold-to-erase.",
-    settings: {
-      pressureCurve: "soft",
-      palmRejection: "standard",
-      barrelButtonAction: "erase",
-      minPressureThreshold: 0.012,
-      smoothing: 0.55,
-      streamline: 0.4,
     },
   },
   {
@@ -185,4 +193,57 @@ export function isStylusEraserTip(
     e.button === 5 ||
     (e.buttons & 32) !== 0
   );
+}
+
+export interface StylusTiltData {
+  tiltX: number; // -90 to +90 degrees
+  tiltY: number; // -90 to +90 degrees
+  tiltAngle: number; // 0 to 90 degrees total deviation from vertical
+  azimuthDeg: number; // 0 to 360 degrees rotation angle
+}
+
+/**
+ * Reads hardware tilt coordinates from graphic tablets (Huion HS64 supports ±60° tilt).
+ */
+export function getStylusTilt(e: React.PointerEvent | PointerEvent): StylusTiltData {
+  const tiltX = typeof e.tiltX === "number" ? e.tiltX : 0;
+  const tiltY = typeof e.tiltY === "number" ? e.tiltY : 0;
+
+  const radX = (tiltX * Math.PI) / 180;
+  const radY = (tiltY * Math.PI) / 180;
+  const tanSq = Math.tan(radX) * Math.tan(radX) + Math.tan(radY) * Math.tan(radY);
+  const tiltAngle = Math.min(90, Math.round((Math.atan(Math.sqrt(tanSq)) * 180) / Math.PI));
+
+  let azimuthDeg = Math.round((Math.atan2(tiltY, tiltX) * 180) / Math.PI);
+  if (azimuthDeg < 0) azimuthDeg += 360;
+
+  return { tiltX, tiltY, tiltAngle, azimuthDeg };
+}
+
+export type StylusButtonIdentifier = "button1" | "button2" | "eraser" | null;
+
+/**
+ * Identifies which physical button on the graphics tablet stylus is pressed.
+ * Huion PW100 battery-free stylus features two rocker buttons:
+ * - Button 1 (Lower): Right Click (e.button === 2 or buttons & 2)
+ * - Button 2 (Upper): Middle Click / Barrel 2 (buttons & 32, buttons & 4, or button === 1)
+ */
+export function getStylusPressedButton(e: React.PointerEvent | PointerEvent): StylusButtonIdentifier {
+  if (e.pointerType !== "pen") return null;
+
+  if (isStylusEraserTip(e)) {
+    return "eraser";
+  }
+
+  // Button 1 (Lower rocker: Right Click)
+  if (e.button === 2 || (e.buttons & 2) !== 0) {
+    return "button1";
+  }
+
+  // Button 2 (Upper rocker: Middle Click / Barrel 2)
+  if ((e.buttons & 32) !== 0 || (e.buttons & 4) !== 0 || e.button === 1) {
+    return "button2";
+  }
+
+  return null;
 }

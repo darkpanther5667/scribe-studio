@@ -63,6 +63,7 @@ interface HeaderBarProps {
   onOpenShortcuts: () => void;
   isPenActive: boolean;
   currentPressure: number;
+  currentTilt?: { tiltX: number; tiltY: number; tiltAngle: number };
   onExportTapboard?: () => void;
   onImportTapboard?: (file: File) => void;
   onStartRecording?: () => void;
@@ -124,6 +125,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenShortcuts,
   isPenActive,
   currentPressure,
+  currentTilt,
   onExportTapboard,
   onImportTapboard,
   onStartRecording,
@@ -1416,8 +1418,8 @@ const THEME_OPTIONS: {
           onClick={onOpenTabletSettings}
           title={
             isPenActive || currentPressure > 0
-              ? `Active Stylus: ${Math.round(currentPressure * 8192)} / 8192 pressure levels (Click to calibrate)`
-              : "Tablet & Stylus Ready (Click to calibrate pen tab)"
+              ? `Active Stylus: ${Math.round(currentPressure * 8192)} / 8192 pressure levels${currentTilt?.tiltAngle ? ` • ${currentTilt.tiltAngle}° Tilt` : ""} (Click to calibrate)`
+              : "Tablet & Stylus Ready (Click to calibrate Huion pen tab)"
           }
           className="
             hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full
@@ -1433,13 +1435,15 @@ const THEME_OPTIONS: {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
               <PenTool className="w-3 h-3 text-emerald-400" />
-              <span className="text-emerald-300 text-[10px]">Stylus ({Math.round(currentPressure * 100)}%)</span>
+              <span className="text-emerald-300 text-[10px]">
+                Stylus ({Math.round(currentPressure * 100)}%{currentTilt?.tiltAngle ? ` • ${currentTilt.tiltAngle}°` : ""})
+              </span>
             </>
           ) : (
             <>
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/60" />
               <PenTool className="w-3 h-3 text-zinc-400" />
-              <span className="text-[10px]">Pen Tab</span>
+              <span className="text-[10px]">Huion / Stylus</span>
             </>
           )}
         </button>

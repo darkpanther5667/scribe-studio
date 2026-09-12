@@ -101,8 +101,9 @@ import {
   loadTabletSettings,
   saveTabletSettings,
   calibratePressure,
-  isStylusBarrelButtonPressed,
   isStylusEraserTip,
+  getStylusTilt,
+  getStylusPressedButton,
 } from "../utils/tabletPressure";
 import type { TabletSettings } from "../types/whiteboard";
 
@@ -586,6 +587,11 @@ export const Whiteboard: React.FC = () => {
 
   const [livePressure, setLivePressure] = useState(0);
   const [isLiveStylus, setIsLiveStylus] = useState(false);
+  const [liveTilt, setLiveTilt] = useState<{ tiltX: number; tiltY: number; tiltAngle: number }>({
+    tiltX: 0,
+    tiltY: 0,
+    tiltAngle: 0,
+  });
 
   // ── Pen Tablet & Stylus Hardware Calibration State ─────────────────────────
   const [tabletSettings, setTabletSettings] = useState<TabletSettings>(() => loadTabletSettings());
@@ -3122,14 +3128,22 @@ export const Whiteboard: React.FC = () => {
 
       canvas.setPointerCapture(e.pointerId);
 
-      // Detect graphics tablet barrel rocker buttons or physical eraser tail
-      const isBarrel = isStylusBarrelButtonPressed(e);
+      // Detect graphics tablet dual rocker buttons (Huion PW100 Button 1 & 2) or physical eraser tail
+      const pressedBtn = getStylusPressedButton(e);
       const isTail = isStylusEraserTip(e);
-      const barrelAction = tabletSettingsRef.current.barrelButtonAction;
+      const btn1Action = tabletSettingsRef.current.barrelButtonAction; // Button 1 (Lower Rocker)
+      const btn2Action = tabletSettingsRef.current.barrelButton2Action ?? "lasso"; // Button 2 (Upper Rocker)
 
-      const isAutoEraser = isTail || (isBarrel && barrelAction === "erase");
-      const isAutoLasso = isBarrel && barrelAction === "lasso";
-      const isAutoPan = isBarrel && barrelAction === "pan";
+      const activeAction =
+        pressedBtn === "button1"
+          ? btn1Action
+          : pressedBtn === "button2"
+          ? btn2Action
+          : "none";
+
+      const isAutoEraser = isTail || activeAction === "erase";
+      const isAutoLasso = activeAction === "lasso";
+      const isAutoPan = activeAction === "pan";
       const isEraseMode = isAutoEraser || modeRef.current === "erase";
 
       // 1. Pan Action — disabled in finite sheet mode (view is locked to slide)
@@ -3360,6 +3374,9 @@ export const Whiteboard: React.FC = () => {
         }
       }
 
+      const tiltX = typeof e.tiltX === "number" ? e.tiltX : undefined;
+      const tiltY = typeof e.tiltY === "number" ? e.tiltY : undefined;
+
       activeStrokeRef.current = {
         id: crypto.randomUUID(),
         color: colorRef.current,
@@ -3367,7 +3384,7 @@ export const Whiteboard: React.FC = () => {
         isHighlighter: currentMode === "highlighter",
         lineStyle: lineStyleRef.current,
         penStyle: currentMode === "highlighter" ? undefined : penStyleRef.current,
-        points: [{ x: initialPoint.x, y: initialPoint.y, pressure, time: performance.now() }],
+        points: [{ x: initialPoint.x, y: initialPoint.y, pressure, time: performance.now(), tiltX, tiltY }],
       };
 
       setRedoStack([]);
@@ -3439,6 +3456,8 @@ export const Whiteboard: React.FC = () => {
           );
           setLivePressure(cal);
         }
+        const tilt = getStylusTilt(e);
+        setLiveTilt({ tiltX: tilt.tiltX, tiltY: tilt.tiltY, tiltAngle: tilt.tiltAngle });
       }
 
       const canvas = canvasRef.current;
@@ -3808,11 +3827,16 @@ export const Whiteboard: React.FC = () => {
           tabletSettingsRef.current.minPressureThreshold
         );
 
+        const evTiltX = typeof ev.tiltX === "number" ? ev.tiltX : undefined;
+        const evTiltY = typeof ev.tiltY === "number" ? ev.tiltY : undefined;
+
         activeStrokeRef.current.points.push({
           x: world.x,
           y: world.y,
           pressure,
           time: performance.now(),
+          tiltX: evTiltX,
+          tiltY: evTiltY,
         });
       }
 
@@ -4453,6 +4477,7 @@ export const Whiteboard: React.FC = () => {
         }}
         isPenActive={isLiveStylus}
         currentPressure={livePressure}
+        currentTilt={liveTilt}
         onExportTapboard={handleExportTapboard}
         onImportTapboard={handleImportTapboard}
         onStartRecording={handleStartRecording}

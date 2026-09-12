@@ -75,8 +75,23 @@ export function getCachedStrokePath2D(
     return cached.path2d;
   }
 
-  // Compute outline points via perfect-freehand
-  const rawPoints = stroke.points.map((p) => [p.x, p.y, p.pressure]);
+  // Compute outline points via perfect-freehand with hardware tilt dynamics
+  const rawPoints = stroke.points.map((p) => {
+    let pPres = p.pressure;
+    if (p.tiltX !== undefined && p.tiltY !== undefined) {
+      const radX = (p.tiltX * Math.PI) / 180;
+      const radY = (p.tiltY * Math.PI) / 180;
+      const tiltAngle = Math.min(1.2, Math.atan(Math.sqrt(Math.tan(radX) ** 2 + Math.tan(radY) ** 2)));
+      if (stroke.isHighlighter) {
+        // Highlighters expand width as chisel tip tilts
+        pPres = Math.min(1.0, pPres * (1.0 + 0.45 * Math.sin(tiltAngle)));
+      } else if (stroke.penStyle === "pencil" || stroke.penStyle === "brush") {
+        // Pencils and brushes broaden on tilt for soft shading
+        pPres = Math.min(1.0, pPres * (1.0 + 0.35 * Math.sin(tiltAngle)));
+      }
+    }
+    return [p.x, p.y, pPres];
+  });
   const pfOptions = getPfOptions(stroke.penStyle, baseWidth);
   const outlinePoints = getStroke(rawPoints, pfOptions);
 

@@ -8,6 +8,8 @@ export interface StrokePoint {
   y: number;
   pressure: number;
   time?: number;
+  tiltX?: number; // PointerEvent tiltX (-90 to +90 degrees)
+  tiltY?: number; // PointerEvent tiltY (-90 to +90 degrees)
 }
 
 /** Line style options: Solid, Dashed, Dotted */
@@ -206,9 +208,11 @@ export type StabilizerLevel = "off" | "smooth" | "calligraphy";
 export interface TabletSettings {
   pressureCurve: PressureCurve;
   palmRejection: PalmRejectionMode;
-  barrelButtonAction: BarrelButtonAction;
+  barrelButtonAction: BarrelButtonAction; // Button 1 (Lower Rocker)
+  barrelButton2Action?: BarrelButtonAction; // Button 2 (Upper Rocker)
   stabilizerLevel?: StabilizerLevel;
   enableScribbleErase?: boolean;
+  enableTiltDynamics?: boolean; // Dynamic chisel angle and soft tilt shading
   smoothing: number; // 0.1 to 1.0
   streamline: number; // 0.1 to 1.0
   showHoverCursor: boolean;
