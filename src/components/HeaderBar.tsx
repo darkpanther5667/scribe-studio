@@ -621,10 +621,10 @@ const THEME_OPTIONS: {
                   <Download className="w-4 h-4 text-emerald-400" />
                   <div className="flex flex-col text-left">
                     <span className="font-medium">Export Current Slide</span>
-                    <span className="text-[10px] text-zinc-500">High-resolution PNG image</span>
+                    <span className="text-[10px] text-zinc-500">Ultra-HD 4K PNG (3840×2160)</span>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono text-zinc-500">PNG</span>
+                <span className="text-[10px] font-mono text-zinc-500">4K PNG</span>
               </button>
 
               {/* Multi-Page Class Notes PDF Export */}
@@ -644,10 +644,10 @@ const THEME_OPTIONS: {
                   )}
                   <div className="flex flex-col text-left">
                     <span className="font-medium">Export Class Notes</span>
-                    <span className="text-[10px] text-zinc-500">Multi-page PDF of all slides</span>
+                    <span className="text-[10px] text-zinc-500">Print-Ready 300 DPI PDF (Ultra-HD)</span>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono text-zinc-500">PDF</span>
+                <span className="text-[10px] font-mono text-zinc-500">HD PDF</span>
               </button>
 
               {/* Vector SVG Export */}

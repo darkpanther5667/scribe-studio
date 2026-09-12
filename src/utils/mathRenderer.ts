@@ -35,8 +35,9 @@ export function getOrRenderMathImage(
   const approxWidth = Math.max(120, item.latex.length * item.fontSize * 0.9);
   const approxHeight = Math.max(50, item.fontSize * 2.6);
 
+  // 2x supersampled SVG for crisp 4K Ultra-HD & print rendering
   const svgContent = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${approxWidth}" height="${approxHeight}">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${approxWidth * 2}" height="${approxHeight * 2}" viewBox="0 0 ${approxWidth} ${approxHeight}">
       <foreignObject width="100%" height="100%">
         <div xmlns="http://www.w3.org/1999/xhtml" style="color: ${item.color}; font-size: ${item.fontSize}px; display: inline-block; white-space: nowrap;">
           ${html}

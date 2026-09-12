@@ -59,7 +59,7 @@ import { Toolbar } from "./Toolbar";
 import { HeaderBar } from "./HeaderBar";
 import { ShortcutsModal } from "./ShortcutsModal";
 import { SlideTray } from "./SlideTray";
-import { exportClassNotesPdf } from "../utils/pdfNotesExporter";
+import { exportClassNotesPdf, exportSlideAsHighResPng } from "../utils/pdfNotesExporter";
 import {
   saveLectureToStorage,
   loadLectureFromStorage,
@@ -4247,28 +4247,25 @@ export const Whiteboard: React.FC = () => {
     showToast("Blackboard Cleared", "Slide contents reset (Ctrl+Z to undo)", "info");
   }, [takeSnapshot, scheduleRedraw, showToast]);
 
-  // ── Export Board Snapshot to PNG ────────────────────────────────────────────
-  const handleExport = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // ── Export Board Snapshot to 4K Ultra-HD PNG ───────────────────────────────
+  const handleExport = useCallback(async () => {
+    try {
+      const currentDeck = syncCurrentSlideToDeck();
+      const currentSlide = currentDeck[currentSlideIndexRef.current];
+      if (!currentSlide) return;
 
-    const exportCanvas = document.createElement("canvas");
-    exportCanvas.width = canvas.width;
-    exportCanvas.height = canvas.height;
-    const expCtx = exportCanvas.getContext("2d");
-    if (!expCtx) return;
-
-    expCtx.fillStyle = "#000000";
-    expCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-    expCtx.drawImage(canvas, 0, 0);
-
-    const dataUrl = exportCanvas.toDataURL("image/png");
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `scribe-studio-lecture-${new Date().toISOString().slice(0, 10)}.png`;
-    a.click();
-    showToast("Snapshot Saved", "Slide captured as high-resolution PNG", "success");
-  }, [showToast]);
+      await exportSlideAsHighResPng(
+        currentSlide,
+        lectureTitle,
+        currentSlideIndexRef.current,
+        currentDeck.length
+      );
+      showToast("Ultra-HD Slide Exported", "Captured crystal-clear 4K PNG (3840×2160, 300 DPI)", "success");
+    } catch (err) {
+      console.error("Failed to export 4K PNG:", err);
+      showToast("Export Failed", "Could not export high-resolution slide", "warning");
+    }
+  }, [syncCurrentSlideToDeck, lectureTitle, showToast]);
 
   const getCursorStyle = () => {
     if (isPanningRef.current) return "grabbing";
