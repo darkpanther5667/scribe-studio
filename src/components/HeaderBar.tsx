@@ -68,6 +68,8 @@ interface HeaderBarProps {
   onImportTapboard?: (file: File) => void;
   onStartRecording?: () => void;
   isRecording?: boolean;
+  recordingQuality?: "1080p" | "720p";
+  onToggleRecordingQuality?: () => void;
   isAutoSaved?: boolean;
   currentUser?: { email?: string } | null;
   onOpenAuth?: () => void;
@@ -130,6 +132,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onImportTapboard,
   onStartRecording,
   isRecording = false,
+  recordingQuality = "1080p",
+  onToggleRecordingQuality,
   isAutoSaved = true,
   currentUser = null,
   onOpenAuth,
@@ -1394,23 +1398,36 @@ const THEME_OPTIONS: {
       <div className="flex items-center gap-2">
         {/* Record Lecture Quick-Action Button */}
         {onStartRecording && (
-          <button
-            onClick={onStartRecording}
-            disabled={isRecording}
-            title="Record Video Lecture with Educator Mic Audio"
-            className={`
-              flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold
-              transition-all duration-150 active:scale-95
-              ${
-                isRecording
-                  ? "bg-rose-500/25 text-rose-300 border border-rose-500/40 animate-pulse shadow-md shadow-rose-500/20"
-                  : "bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/25 shadow-sm"
-              }
-            `}
-          >
-            <Video className="w-3.5 h-3.5 text-rose-400" />
-            <span className="hidden sm:inline">{isRecording ? "Recording..." : "Record"}</span>
-          </button>
+          <div className="flex items-center">
+            <button
+              onClick={onStartRecording}
+              disabled={isRecording}
+              title="Record Video Lecture with Educator Mic Audio"
+              className={`
+                flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold
+                transition-all duration-150 active:scale-95
+                ${
+                  isRecording
+                    ? "bg-rose-500/25 text-rose-300 border border-rose-500/40 animate-pulse shadow-md shadow-rose-500/20 rounded-xl"
+                    : onToggleRecordingQuality
+                      ? "bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border-y border-l border-rose-500/25 shadow-sm rounded-l-xl"
+                      : "bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/25 shadow-sm rounded-xl"
+                }
+              `}
+            >
+              <Video className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden sm:inline">{isRecording ? "Recording..." : "Record"}</span>
+            </button>
+            {!isRecording && onToggleRecordingQuality && (
+              <button
+                onClick={onToggleRecordingQuality}
+                title={`Recording Profile: ${recordingQuality} (Click to toggle 1080p / 720p Smooth)`}
+                className="px-2 py-1.5 rounded-r-xl text-[10px] font-mono font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-300/80 hover:text-rose-200 border-y border-r border-rose-500/25 transition-all"
+              >
+                {recordingQuality === "720p" ? "720p" : "1080p"}
+              </button>
+            )}
+          </div>
         )}
 
         {/* Stylus / Tablet Telemetry Badge (Clickable to calibrate) */}

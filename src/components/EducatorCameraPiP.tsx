@@ -106,6 +106,30 @@ export const EducatorCameraPiP: React.FC<EducatorCameraPiPProps> = ({
     }
   }, [stream]);
 
+  const cachedBoundsRef = useRef<{ left: number; top: number; width: number; height: number } | null>(null);
+
+  const updateCachedBounds = () => {
+    if (frameRef.current) {
+      const r = frameRef.current.getBoundingClientRect();
+      cachedBoundsRef.current = {
+        left: r.left,
+        top: r.top,
+        width: r.width,
+        height: r.height,
+      };
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const id = requestAnimationFrame(updateCachedBounds);
+    window.addEventListener("resize", updateCachedBounds);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener("resize", updateCachedBounds);
+    };
+  }, [isOpen, shape, size, corner, customPos]);
+
   // Notify parent of active facecam overlay state for canvas recorder compositor
   useEffect(() => {
     if (!isOpen || !stream || !hasPermission) {
@@ -113,11 +137,12 @@ export const EducatorCameraPiP: React.FC<EducatorCameraPiPProps> = ({
       return;
     }
 
+    updateCachedBounds();
     onOverlayStateChange?.({
       videoElement: videoRef.current,
       shape,
       isMirrored,
-      getScreenBounds: () => frameRef.current?.getBoundingClientRect() ?? null,
+      getScreenBounds: () => cachedBoundsRef.current,
     });
   }, [isOpen, stream, hasPermission, shape, isMirrored, onOverlayStateChange]);
 
@@ -151,6 +176,10 @@ export const EducatorCameraPiP: React.FC<EducatorCameraPiPProps> = ({
     const newX = Math.max(16, Math.min(window.innerWidth - 180, dragStartRef.current.startX + dx));
     const newY = Math.max(16, Math.min(window.innerHeight - 180, dragStartRef.current.startY + dy));
     setCustomPos({ x: newX, y: newY });
+    if (cachedBoundsRef.current) {
+      cachedBoundsRef.current.left = newX;
+      cachedBoundsRef.current.top = newY;
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -169,6 +198,7 @@ export const EducatorCameraPiP: React.FC<EducatorCameraPiPProps> = ({
     else setCorner("top-left");
 
     setCustomPos(null);
+    requestAnimationFrame(updateCachedBounds);
   };
 
   // Dimensions based on shape & size preset

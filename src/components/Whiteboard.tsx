@@ -4483,6 +4483,11 @@ export const Whiteboard: React.FC = () => {
         onImportTapboard={handleImportTapboard}
         onStartRecording={handleStartRecording}
         isRecording={recorderState.isRecording}
+        recordingQuality={recorderState.quality || lectureRecorder.getQuality()}
+        onToggleRecordingQuality={() => {
+          const currentQ = recorderState.quality || lectureRecorder.getQuality();
+          lectureRecorder.setQuality(currentQ === "1080p" ? "720p" : "1080p");
+        }}
         isAutoSaved={true}
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
