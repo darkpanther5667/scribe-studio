@@ -51,6 +51,10 @@ export const LectureRecorderWidget: React.FC<LectureRecorderWidgetProps> = ({
         {formatTime(state.seconds)}
       </span>
 
+      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30 tracking-tight">
+        {state.format || "MP4 HD"}
+      </span>
+
       <div className="w-px h-4 bg-white/10 mx-0.5" />
 
       {/* Pause / Resume */}

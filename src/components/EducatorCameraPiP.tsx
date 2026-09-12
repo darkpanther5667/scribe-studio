@@ -8,10 +8,12 @@ import {
   Maximize2,
   Minimize2,
 } from "lucide-react";
+import type { FacecamOverlayState } from "../utils/lectureRecorder";
 
 interface EducatorCameraPiPProps {
   isOpen: boolean;
   onClose: () => void;
+  onOverlayStateChange?: (state: FacecamOverlayState | null) => void;
 }
 
 type CornerPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
@@ -21,8 +23,10 @@ type SizePreset = "sm" | "md" | "lg";
 export const EducatorCameraPiP: React.FC<EducatorCameraPiPProps> = ({
   isOpen,
   onClose,
+  onOverlayStateChange,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -101,6 +105,27 @@ export const EducatorCameraPiP: React.FC<EducatorCameraPiPProps> = ({
       videoRef.current.play().catch(() => {});
     }
   }, [stream]);
+
+  // Notify parent of active facecam overlay state for canvas recorder compositor
+  useEffect(() => {
+    if (!isOpen || !stream || !hasPermission) {
+      onOverlayStateChange?.(null);
+      return;
+    }
+
+    onOverlayStateChange?.({
+      videoElement: videoRef.current,
+      shape,
+      isMirrored,
+      getScreenBounds: () => frameRef.current?.getBoundingClientRect() ?? null,
+    });
+  }, [isOpen, stream, hasPermission, shape, isMirrored, onOverlayStateChange]);
+
+  useEffect(() => {
+    return () => {
+      onOverlayStateChange?.(null);
+    };
+  }, [onOverlayStateChange]);
 
   if (!isOpen) return null;
 
@@ -201,6 +226,7 @@ export const EducatorCameraPiP: React.FC<EducatorCameraPiPProps> = ({
     >
       {/* ── Outer Glowing Frame Container ── */}
       <div
+        ref={frameRef}
         className={`
           relative overflow-hidden
           ${getDimensions()}

@@ -68,7 +68,7 @@ import {
 } from "../utils/projectPersistence";
 import { drawMathItem } from "../utils/mathRenderer";
 import { MathFormulaModal } from "./MathFormulaModal";
-import { lectureRecorder, type RecorderState } from "../utils/lectureRecorder";
+import { lectureRecorder, type RecorderState, type FacecamOverlayState } from "../utils/lectureRecorder";
 import { LectureRecorderWidget } from "./LectureRecorderWidget";
 import { AuthModal } from "./AuthModal";
 import { CloudLibraryModal } from "./CloudLibraryModal";
@@ -396,6 +396,7 @@ export const Whiteboard: React.FC = () => {
 
   // ── Unacademy Studio Superpower States ────────────────────────────────────
   const [isFacecamOpen, setIsFacecamOpen] = useState(false);
+  const facecamOverlayRef = useRef<FacecamOverlayState | null>(null);
   const [isPollOpen, setIsPollOpen] = useState(false);
   const [isStemBarOpen, setIsStemBarOpen] = useState(false);
   const [isSplitScreenActive, setIsSplitScreenActive] = useState(false);
@@ -1874,7 +1875,7 @@ export const Whiteboard: React.FC = () => {
   const handleStartRecording = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    await lectureRecorder.startRecording(canvas, lectureTitle);
+    await lectureRecorder.startRecording(canvas, lectureTitle, () => facecamOverlayRef.current);
   }, [lectureTitle]);
 
   // ── Supabase Cloud Save & Load Operations ────────────────────────────────────
@@ -4952,6 +4953,9 @@ export const Whiteboard: React.FC = () => {
       <EducatorCameraPiP
         isOpen={isFacecamOpen}
         onClose={() => setIsFacecamOpen(false)}
+        onOverlayStateChange={(state) => {
+          facecamOverlayRef.current = state;
+        }}
       />
 
       <ClassroomPollWidget
