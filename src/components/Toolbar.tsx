@@ -791,17 +791,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               {mode === "draw" && onToggleSmartSnap && (
                 <button
                   onClick={onToggleSmartSnap}
-                  title={`Draw-and-Hold Smart Snap (Alt+S): ${smartSnapEnabled ? "Enabled" : "Disabled"}`}
+                  title={`Click to turn Smart Shape Snap ${smartSnapEnabled ? "OFF" : "ON"} (Alt+S)`}
                   className={`
-                    p-1.5 rounded-lg transition-all duration-150 active:scale-90
+                    flex items-center gap-1.5 px-2 py-1 rounded-xl text-xs font-semibold transition-all duration-150 active:scale-90 cursor-pointer
                     ${
                       smartSnapEnabled
-                        ? "bg-amber-400/25 text-amber-300 border border-amber-400/40 shadow-sm"
-                        : "text-zinc-400 hover:text-white hover:bg-white/10"
+                        ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm shadow-amber-400/20"
+                        : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/10"
                     }
                   `}
                 >
-                  <Sparkles className={`w-3.5 h-3.5 ${smartSnapEnabled ? "text-amber-300 animate-pulse" : "text-zinc-400"}`} />
+                  <Sparkles className={`w-3.5 h-3.5 ${smartSnapEnabled ? "text-amber-300 animate-pulse" : "text-zinc-500"}`} />
+                  <span className="text-[11px] font-medium tracking-tight">
+                    {smartSnapEnabled ? "Snap ON" : "Snap OFF"}
+                  </span>
                 </button>
               )}
 

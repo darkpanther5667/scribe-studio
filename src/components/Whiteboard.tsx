@@ -570,6 +570,20 @@ export const Whiteboard: React.FC = () => {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const { showToast } = useToast();
+
+  const handleToggleSmartSnap = useCallback(() => {
+    setSmartSnapEnabled((prev) => {
+      const next = !prev;
+      smartSnapEnabledRef.current = next;
+      if (next) {
+        showToast("✨ Smart Snap: ON", "Draw and hold pen to snap geometric shapes", "sparkle");
+      } else {
+        showToast("🚫 Smart Snap: OFF", "Pure freehand handwriting mode (strokes will not snap)", "info");
+      }
+      return next;
+    });
+  }, [showToast]);
+
   const [livePressure, setLivePressure] = useState(0);
   const [isLiveStylus, setIsLiveStylus] = useState(false);
 
@@ -2430,7 +2444,7 @@ export const Whiteboard: React.FC = () => {
       // Toggle Draw-and-Hold Smart Snap (Alt + S)
       if (e.altKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        setSmartSnapEnabled((prev) => !prev);
+        handleToggleSmartSnap();
         return;
       }
 
@@ -4446,6 +4460,8 @@ export const Whiteboard: React.FC = () => {
           setCurrentUser(null);
           setActiveCloudDrawingId(null);
         }}
+        smartSnapEnabled={smartSnapEnabled}
+        onToggleSmartSnap={handleToggleSmartSnap}
       />
       )}
 
@@ -4745,7 +4761,7 @@ export const Whiteboard: React.FC = () => {
           onUndo={handleUndo}
           onRedo={handleRedo}
           smartSnapEnabled={smartSnapEnabled}
-          onToggleSmartSnap={() => setSmartSnapEnabled((p) => !p)}
+          onToggleSmartSnap={handleToggleSmartSnap}
           isFiniteMode={isFiniteMode}
           penStyle={penStyle}
           onPenStyleChange={setPenStyle}

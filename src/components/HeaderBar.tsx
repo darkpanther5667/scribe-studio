@@ -94,6 +94,8 @@ interface HeaderBarProps {
   onOpenTabletSettings?: () => void;
   onOpenLifeSimulators?: () => void;
   onOpenAbout?: () => void;
+  smartSnapEnabled?: boolean;
+  onToggleSmartSnap?: () => void;
 }
 
 type DropdownMenu = "file" | "export" | "profile" | "template" | "studio" | "teaching" | null;
@@ -101,6 +103,8 @@ type DropdownMenu = "file" | "export" | "profile" | "template" | "studio" | "tea
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   onNewNotebook,
   onOpenAbout,
+  smartSnapEnabled = true,
+  onToggleSmartSnap,
   title,
   onTitleChange,
   gridStyle,
@@ -1152,6 +1156,41 @@ const THEME_OPTIONS: {
                 </span>
                 <span className="text-[9px] font-mono text-zinc-500">Pedagogical Kit</span>
               </div>
+
+              {/* 0. Smart Shape Snap Toggle */}
+              {onToggleSmartSnap && (
+                <button
+                  onClick={() => {
+                    onToggleSmartSnap();
+                  }}
+                  className={`
+                    flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all text-left
+                    ${
+                      smartSnapEnabled
+                        ? "bg-amber-500/20 text-white border border-amber-500/30"
+                        : "text-zinc-300 hover:text-white hover:bg-white/[0.06]"
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${smartSnapEnabled ? "bg-amber-500 text-zinc-950 font-bold" : "bg-white/5 text-zinc-400"}`}>
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs leading-none">Smart Shape Snap</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">
+                        {smartSnapEnabled ? "Draw-and-hold snaps lines & circles" : "Turned OFF (Freehand handwriting only)"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-zinc-500 bg-white/5 px-1 py-0.5 rounded">Alt+S</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${smartSnapEnabled ? "bg-amber-400 text-zinc-950" : "bg-white/10 text-zinc-400"}`}>
+                      {smartSnapEnabled ? "ON" : "OFF"}
+                    </span>
+                  </div>
+                </button>
+              )}
 
               {/* 1. Classroom Timer */}
               {onToggleTimer && (
