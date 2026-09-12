@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import katex from "katex";
-import { X, Check, Calculator } from "lucide-react";
+import { X, Check, Calculator, Sparkles } from "lucide-react";
 
 interface MathFormulaModalProps {
   isOpen: boolean;
   onClose: () => void;
   onInsert: (latex: string) => void;
+  onBringToLife?: (latex: string) => void;
   initialLatex?: string;
 }
 
@@ -32,6 +33,7 @@ export const MathFormulaModal: React.FC<MathFormulaModalProps> = ({
   isOpen,
   onClose,
   onInsert,
+  onBringToLife,
   initialLatex = "E = mc^2",
 }) => {
   const [latex, setLatex] = useState(initialLatex);
@@ -181,6 +183,27 @@ export const MathFormulaModal: React.FC<MathFormulaModalProps> = ({
             >
               Cancel
             </button>
+            {onBringToLife && (
+              <button
+                onClick={() => {
+                  const trimmed = latex.trim();
+                  if (trimmed) {
+                    onBringToLife(trimmed);
+                    onClose();
+                  }
+                }}
+                className="
+                  flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold
+                  bg-gradient-to-r from-amber-400 to-orange-400 text-zinc-950
+                  hover:opacity-90 shadow-lg shadow-amber-500/25
+                  transition-all active:scale-95
+                "
+                title="Transform equation into an interactive live animation"
+              >
+                <Sparkles className="w-3.5 h-3.5 fill-zinc-950 text-zinc-950" />
+                <span>✨ Bring to Life</span>
+              </button>
+            )}
             <button
               onClick={handleInsert}
               className="

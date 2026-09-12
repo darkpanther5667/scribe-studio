@@ -220,7 +220,7 @@ export interface TabletSettings {
 }
 
 /** Interactive Math-to-Life simulation types */
-export type SimType = "wave" | "pendulum" | "ramp" | "spring" | "orbit";
+export type SimType = "wave" | "pendulum" | "ramp" | "spring" | "orbit" | "custom_equation";
 
 export interface SimulationParams {
   // Wave
@@ -250,6 +250,23 @@ export interface SimulationParams {
   // Orbit
   eccentricity?: number;
   orbitSpeed?: number;
+
+  // Universal Custom Equation Params
+  equationStr?: string;
+  equationLatex?: string;
+  varA?: number;
+  varB?: number;
+  varC?: number;
+  varD?: number;
+  varAName?: string;
+  varBName?: string;
+  varCName?: string;
+  varDName?: string;
+  xRange?: number;
+  yScale?: number;
+  speed?: number;
+  showDerivative?: boolean;
+  showParticle?: boolean;
 }
 
 export interface PhysicsSimulationItem {

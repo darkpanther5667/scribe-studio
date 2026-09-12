@@ -25,6 +25,7 @@ import type {
   MathItem,
   BoardTheme,
   FavoritePen,
+  SimulationParams,
 } from "../types/whiteboard";
 import { STROKE_WIDTH_MAP, STROKE_WIDTH_ORDER } from "../types/whiteboard";
 import { loadFavoritePens, saveFavoritePens } from "../utils/colorPalettes";
@@ -2886,7 +2887,11 @@ export const Whiteboard: React.FC = () => {
 
   // ── Math-to-Life Interactive Physics Simulation Handlers ───────────────────────
   const handleSpawnSimulation = useCallback(
-    (type: SimType) => {
+    (
+      type: SimType,
+      customParams?: Partial<SimulationParams>,
+      customTitle?: string
+    ) => {
       setUndoStack((u) => [...u, takeSnapshot()]);
       setRedoStack([]);
 
@@ -2896,6 +2901,9 @@ export const Whiteboard: React.FC = () => {
       if (pendingLifeSpawnPos) {
         spawnX = pendingLifeSpawnPos.x;
         spawnY = pendingLifeSpawnPos.y;
+      } else if (pendingMathPos) {
+        spawnX = pendingMathPos.x;
+        spawnY = pendingMathPos.y;
       } else {
         const cam = cameraRef.current;
         const canvas = canvasRef.current;
@@ -2905,18 +2913,19 @@ export const Whiteboard: React.FC = () => {
         spawnY = centerY - 140;
       }
 
-      const newSim = createPhysicsSimulation(type, spawnX, spawnY);
+      const newSim = createPhysicsSimulation(type, spawnX, spawnY, customParams, customTitle);
       const next = [...simulationsRef.current, newSim];
       simulationsRef.current = next;
       setSimulations(next);
       setPendingLifeSpawnPos(null);
+      setPendingMathPos(null);
       showToast(
         "✦ Math-to-Life Activated",
         `Spawned interactive ${newSim.title} simulation`,
         "sparkle"
       );
     },
-    [pendingLifeSpawnPos, takeSnapshot, showToast]
+    [pendingLifeSpawnPos, pendingMathPos, takeSnapshot, showToast]
   );
 
   const handleUpdateSimulation = useCallback((updated: PhysicsSimulationItem) => {
@@ -4894,6 +4903,21 @@ export const Whiteboard: React.FC = () => {
           setPendingMathPos(null);
         }}
         onInsert={handleInsertMath}
+        onBringToLife={(latex) => {
+          setIsMathModalOpen(false);
+          handleSpawnSimulation(
+            "custom_equation",
+            {
+              equationStr: latex,
+              equationLatex: latex,
+              varA: 42,
+              varB: 0.04,
+              varC: 2.5,
+              varD: 0.0,
+            },
+            `Live: ${latex.length > 20 ? latex.slice(0, 20) + "..." : latex}`
+          );
+        }}
       />
 
       {/* ── Classroom Countdown Timer & Stopwatch ── */}

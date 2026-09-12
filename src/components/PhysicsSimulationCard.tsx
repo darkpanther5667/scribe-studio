@@ -22,6 +22,7 @@ import {
   updateRampPhysics,
   renderSpringSimulation,
   renderOrbitSimulation,
+  renderCustomEquationSimulation,
   type PendulumState,
   type RampState,
 } from "../utils/physicsSimulation";
@@ -65,18 +66,19 @@ export const PhysicsSimulationCard: React.FC<PhysicsSimulationCardProps> = ({
   });
 
   const meta = SIMULATION_DEFINITIONS[item.type];
+  const activeFormulaLatex = params.equationLatex || meta.formulaLatex;
 
   // Render KaTeX formula in header
   const formulaHtml = React.useMemo(() => {
     try {
-      return katex.renderToString(meta.formulaLatex, {
+      return katex.renderToString(activeFormulaLatex, {
         throwOnError: false,
         displayMode: false,
       });
     } catch {
-      return meta.formulaLatex;
+      return activeFormulaLatex;
     }
-  }, [meta.formulaLatex]);
+  }, [activeFormulaLatex]);
 
   // Handle Dragging
   const handlePointerDownDrag = (e: React.PointerEvent) => {
@@ -182,6 +184,9 @@ export const PhysicsSimulationCard: React.FC<PhysicsSimulationCardProps> = ({
               break;
             case "orbit":
               renderOrbitSimulation(ctx, w, h, params, timeRef.current);
+              break;
+            case "custom_equation":
+              renderCustomEquationSimulation(ctx, w, h, params, timeRef.current);
               break;
           }
         }
@@ -530,6 +535,135 @@ export const PhysicsSimulationCard: React.FC<PhysicsSimulationCardProps> = ({
                 <span className="font-mono text-emerald-400 text-[10px] w-8 text-right">
                   {params.orbitSpeed}x
                 </span>
+              </div>
+            </>
+          )}
+
+          {/* Custom Equation Controls */}
+          {item.type === "custom_equation" && (
+            <>
+              {/* Formula input */}
+              <div className="flex flex-col gap-1 pb-1">
+                <span className="text-[10px] font-mono text-zinc-400">Equation Expression:</span>
+                <input
+                  type="text"
+                  value={params.equationStr ?? "A * sin(B * x - C * t)"}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const next = { ...params, equationStr: val, equationLatex: val };
+                    setParams(next);
+                    onUpdate({ ...item, params: next });
+                  }}
+                  className="w-full px-2 py-1 rounded bg-zinc-900 border border-white/15 text-[11px] font-mono text-cyan-300 focus:outline-none focus:border-cyan-400"
+                  placeholder="e.g. A * sin(B*x - C*t)"
+                />
+              </div>
+
+              {/* Parameter A */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-zinc-400">{params.varAName || "Amplitude (A)"}:</span>
+                <input
+                  type="range"
+                  min="5"
+                  max="90"
+                  value={params.varA ?? 42}
+                  onChange={(e) => updateParam("varA", Number(e.target.value))}
+                  className="w-28 accent-cyan-400"
+                />
+                <span className="font-mono text-cyan-400 text-[10px] w-8 text-right">
+                  {params.varA ?? 42}
+                </span>
+              </div>
+
+              {/* Parameter B */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-zinc-400">{params.varBName || "Wavenumber (B)"}:</span>
+                <input
+                  type="range"
+                  min="0.005"
+                  max="0.15"
+                  step="0.005"
+                  value={params.varB ?? 0.04}
+                  onChange={(e) => updateParam("varB", Number(e.target.value))}
+                  className="w-28 accent-purple-400"
+                />
+                <span className="font-mono text-purple-400 text-[10px] w-8 text-right">
+                  {params.varB ?? 0.04}
+                </span>
+              </div>
+
+              {/* Parameter C */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-zinc-400">{params.varCName || "Angular Freq (C)"}:</span>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="6.0"
+                  step="0.2"
+                  value={params.varC ?? 2.5}
+                  onChange={(e) => updateParam("varC", Number(e.target.value))}
+                  className="w-28 accent-amber-400"
+                />
+                <span className="font-mono text-amber-400 text-[10px] w-8 text-right">
+                  {params.varC ?? 2.5}
+                </span>
+              </div>
+
+              {/* Parameter D (Damping/Decay) */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-zinc-400">{params.varDName || "Decay / Damping (D)"}:</span>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="0.03"
+                  step="0.002"
+                  value={params.varD ?? 0.0}
+                  onChange={(e) => updateParam("varD", Number(e.target.value))}
+                  className="w-28 accent-rose-400"
+                />
+                <span className="font-mono text-rose-400 text-[10px] w-8 text-right">
+                  {params.varD ?? 0.0}
+                </span>
+              </div>
+
+              {/* Animation Speed Multiplier */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-zinc-400">Time Speed:</span>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="3.0"
+                  step="0.2"
+                  value={params.speed ?? 1.0}
+                  onChange={(e) => updateParam("speed", Number(e.target.value))}
+                  className="w-28 accent-emerald-400"
+                />
+                <span className="font-mono text-emerald-400 text-[10px] w-8 text-right">
+                  {params.speed ?? 1.0}x
+                </span>
+              </div>
+
+              {/* Toggles */}
+              <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={params.showDerivative ?? true}
+                    onChange={(e) => updateParam("showDerivative", e.target.checked)}
+                    className="accent-emerald-400 rounded"
+                  />
+                  <span>Tangent Slope (dy/dx)</span>
+                </label>
+
+                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={params.showParticle ?? true}
+                    onChange={(e) => updateParam("showParticle", e.target.checked)}
+                    className="accent-amber-400 rounded"
+                  />
+                  <span>Particle Tracer</span>
+                </label>
               </div>
             </>
           )}

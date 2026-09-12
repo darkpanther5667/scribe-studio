@@ -85,12 +85,40 @@ export const SIMULATION_DEFINITIONS: Record<SimType, SimulationMetadata> = {
       orbitSpeed: 1.0,
     },
   },
+  custom_equation: {
+    type: "custom_equation",
+    title: "Math-to-Life Live Equation",
+    category: "Universal Calculus & Physics",
+    formulaLatex: "y(x, t) = A \\sin(B x - C t)",
+    description: "Universal mathematical expression brought to life with animated wave dynamics, particle tracing, and derivative tangent vectors.",
+    defaultWidth: 480,
+    defaultHeight: 330,
+    defaultParams: {
+      equationStr: "A * sin(B * x - C * t)",
+      equationLatex: "y(x, t) = A \\sin(B x - C t)",
+      varA: 42,
+      varB: 0.04,
+      varC: 2.5,
+      varD: 0.0,
+      varAName: "Amplitude (A)",
+      varBName: "Wavenumber (k / B)",
+      varCName: "Angular Speed (ω / C)",
+      varDName: "Decay / Damping (D)",
+      xRange: 400,
+      yScale: 1.0,
+      speed: 1.0,
+      showDerivative: true,
+      showParticle: true,
+    },
+  },
 };
 
 export function createPhysicsSimulation(
   type: SimType,
   x: number,
-  y: number
+  y: number,
+  customParams?: Partial<SimulationParams>,
+  customTitle?: string
 ): PhysicsSimulationItem {
   const meta = SIMULATION_DEFINITIONS[type];
   return {
@@ -100,9 +128,12 @@ export function createPhysicsSimulation(
     y: y - meta.defaultHeight / 2,
     width: meta.defaultWidth,
     height: meta.defaultHeight,
-    title: meta.title,
+    title: customTitle || meta.title,
     isRunning: true,
-    params: { ...meta.defaultParams },
+    params: {
+      ...meta.defaultParams,
+      ...(customParams || {}),
+    },
   };
 }
 
@@ -711,3 +742,314 @@ export function renderOrbitSimulation(
   drawVectorArrow(ctx, planetX, planetY, planetX + vx, planetY + vy, "#10b981", "v");
   ctx.restore();
 }
+
+// ── Universal Safe Equation Compiler & Evaluator ──────────────────────────────
+export type EquationFn = (
+  x: number,
+  t: number,
+  A: number,
+  B: number,
+  C: number,
+  D: number
+) => number;
+
+const equationCache = new Map<string, EquationFn>();
+
+export function compileEquation(expr: string): EquationFn {
+  if (!expr || typeof expr !== "string" || !expr.trim()) {
+    return () => 0;
+  }
+
+  const cached = equationCache.get(expr);
+  if (cached) return cached;
+
+  try {
+    let clean = expr.trim();
+
+    // Strip common prefixes: "y =", "y(x,t) =", "f(x) =", "f(x, t) ="
+    clean = clean.replace(/^[yfz](\([a-zA-Z0-9,\s]*\))?\s*=\s*/i, "");
+
+    // LaTeX command replacements
+    clean = clean
+      .replace(/\\sin\b/g, "Math.sin")
+      .replace(/\\cos\b/g, "Math.cos")
+      .replace(/\\tan\b/g, "Math.tan")
+      .replace(/\\asin\b|\\arcsin\b/g, "Math.asin")
+      .replace(/\\acos\b|\\arccos\b/g, "Math.acos")
+      .replace(/\\atan\b|\\arctan\b/g, "Math.atan")
+      .replace(/\\sinh\b/g, "Math.sinh")
+      .replace(/\\cosh\b/g, "Math.cosh")
+      .replace(/\\tanh\b/g, "Math.tanh")
+      .replace(/\\sqrt\{([^}]+)\}/g, "Math.sqrt($1)")
+      .replace(/\\sqrt\b/g, "Math.sqrt")
+      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "(($1)/($2))")
+      .replace(/\\exp\{([^}]+)\}/g, "Math.exp($1)")
+      .replace(/\\exp\b/g, "Math.exp")
+      .replace(/\\ln\{([^}]+)\}/g, "Math.log($1)")
+      .replace(/\\ln\b/g, "Math.log")
+      .replace(/\\log\{([^}]+)\}/g, "Math.log10($1)")
+      .replace(/\\log\b/g, "Math.log10")
+      .replace(/\\abs\{([^}]+)\}/g, "Math.abs($1)")
+      .replace(/\\pi\b/g, "Math.PI")
+      .replace(/\\omega\b/g, "C")
+      .replace(/\\theta\b/g, "x")
+      .replace(/\\cdot/g, "*")
+      .replace(/\\times/g, "*");
+
+    // Replace standard math function names if not prefixed with Math.
+    const mathFuncs = [
+      "sin", "cos", "tan", "asin", "acos", "atan",
+      "sinh", "cosh", "tanh", "exp", "log", "sqrt", "abs",
+      "floor", "ceil", "round"
+    ];
+    for (const fn of mathFuncs) {
+      const regex = new RegExp(`(?<!Math\\.)\\b${fn}\\b`, "g");
+      clean = clean.replace(regex, `Math.${fn}`);
+    }
+
+    clean = clean.replace(/(?<!Math\.)\bPI\b/g, "Math.PI");
+    clean = clean.replace(/(?<!Math\.)\bpi\b/g, "Math.PI");
+
+    // Power operator ^ to **
+    clean = clean.replace(/\^/g, "**");
+
+    // Replace curly brackets
+    clean = clean.replace(/\{/g, "(").replace(/\}/g, ")");
+
+    // Handle implicit multiplication (e.g. 2x -> 2*x, A sin -> A*sin)
+    clean = clean.replace(/(\d+)\s*([a-zA-Z(])/g, "$1*$2");
+    clean = clean.replace(/([a-zA-Z])\s+(Math\.[a-zA-Z]+|\()/g, "$1*$2");
+    clean = clean.replace(/\)\s*([a-zA-Z0-9(])/g, ")*$1");
+
+    // Construct evaluator function
+    const fn = new Function(
+      "x",
+      "t",
+      "A",
+      "B",
+      "C",
+      "D",
+      `try {
+        const val = ${clean};
+        return (typeof val === 'number' && Number.isFinite(val)) ? val : 0;
+      } catch (e) {
+        return 0;
+      }`
+    ) as EquationFn;
+
+    // Test with sample inputs
+    fn(1, 0, 1, 1, 1, 0);
+
+    equationCache.set(expr, fn);
+    return fn;
+  } catch {
+    const fallback: EquationFn = (x, t, A, B, C) => A * Math.sin(B * x - C * t);
+    equationCache.set(expr, fallback);
+    return fallback;
+  }
+}
+
+// ── Universal Equation Simulation Renderer ────────────────────────────────────
+export function renderCustomEquationSimulation(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  params: SimulationParams,
+  time: number
+): void {
+  ctx.clearRect(0, 0, w, h);
+
+  const rawExpr = params.equationStr || "A * sin(B * x - C * t)";
+  const fn = compileEquation(rawExpr);
+
+  const speed = params.speed ?? 1.0;
+  const t = time * speed;
+  const A = params.varA ?? 42;
+  const B = params.varB ?? 0.04;
+  const C = params.varC ?? 2.5;
+  const D = params.varD ?? 0.0;
+  const yScale = params.yScale ?? 1.0;
+
+  const originX = 36;
+  const originY = h / 2;
+
+  // 1. Grid & Axes
+  ctx.save();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+  ctx.lineWidth = 1;
+  const gridSize = 40;
+
+  // Vertical grid lines
+  for (let gx = originX % gridSize; gx < w; gx += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(gx, 0);
+    ctx.lineTo(gx, h);
+    ctx.stroke();
+  }
+  // Horizontal grid lines
+  for (let gy = originY % gridSize; gy < h; gy += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    ctx.lineTo(w, gy);
+    ctx.stroke();
+  }
+
+  // X Axis
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.4)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, originY);
+  ctx.lineTo(w, originY);
+  ctx.stroke();
+
+  // Y Axis
+  ctx.beginPath();
+  ctx.moveTo(originX, 0);
+  ctx.lineTo(originX, h);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = "rgba(148, 163, 184, 0.7)";
+  ctx.font = "10px monospace";
+  ctx.fillText("x", w - 14, originY - 6);
+  ctx.fillText("y", originX + 6, 14);
+  ctx.restore();
+
+  // 2. Sample Points & Draw Area Fill
+  const step = 2;
+  const points: { px: number; py: number; x: number; y: number }[] = [];
+
+  for (let px = originX; px <= w; px += step) {
+    const xVal = px - originX;
+    let yVal = 0;
+    try {
+      yVal = fn(xVal, t, A, B, C, D) * yScale;
+    } catch {
+      yVal = 0;
+    }
+
+    if (!Number.isFinite(yVal)) yVal = 0;
+    // Clamp to canvas height limits to prevent canvas context distortion
+    const clampedY = Math.max(-h, Math.min(h * 2, yVal));
+    const py = originY - clampedY;
+    points.push({ px, py, x: xVal, y: yVal });
+  }
+
+  if (points.length > 1) {
+    // Shaded Area Under Curve
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(originX, originY);
+    for (const pt of points) {
+      ctx.lineTo(pt.px, pt.py);
+    }
+    ctx.lineTo(w, originY);
+    ctx.closePath();
+    const areaGrad = ctx.createLinearGradient(0, originY - 60, 0, originY + 60);
+    areaGrad.addColorStop(0, "rgba(56, 189, 248, 0.15)");
+    areaGrad.addColorStop(0.5, "rgba(56, 189, 248, 0.05)");
+    areaGrad.addColorStop(1, "rgba(56, 189, 248, 0.15)");
+    ctx.fillStyle = areaGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Curve Path
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(points[0].px, points[0].py);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].px, points[i].py);
+    }
+    ctx.strokeStyle = "#38bdf8";
+    ctx.lineWidth = 2.6;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.shadowColor = "rgba(56, 189, 248, 0.8)";
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 3. Particle Tracker & Tangent Vector
+  const tracerX = originX + Math.min(180, (w - originX) * 0.45);
+  const tracerPt = points.find((p) => Math.abs(p.px - tracerX) < step) || points[Math.floor(points.length / 2)];
+
+  if (tracerPt && (params.showParticle ?? true)) {
+    // Tracer point glow
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(tracerPt.px, tracerPt.py, 6, 0, Math.PI * 2);
+    ctx.fillStyle = "#f59e0b";
+    ctx.shadowColor = "#f59e0b";
+    ctx.shadowBlur = 14;
+    ctx.fill();
+
+    // Inner highlight
+    ctx.beginPath();
+    ctx.arc(tracerPt.px, tracerPt.py, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.restore();
+
+    // Dotted projection to x axis
+    ctx.save();
+    ctx.setLineDash([2, 3]);
+    ctx.strokeStyle = "rgba(245, 158, 11, 0.4)";
+    ctx.beginPath();
+    ctx.moveTo(tracerPt.px, originY);
+    ctx.lineTo(tracerPt.px, tracerPt.py);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Tangent Vector (Numerical Derivative dy/dx)
+  if (tracerPt && (params.showDerivative ?? true)) {
+    const delta = 1.0;
+    let yPlus = 0;
+    let yMinus = 0;
+    try {
+      yPlus = fn(tracerPt.x + delta, t, A, B, C, D) * yScale;
+      yMinus = fn(tracerPt.x - delta, t, A, B, C, D) * yScale;
+    } catch {}
+
+    const dydx = (yPlus - yMinus) / (2 * delta);
+    const vecLen = 38;
+    const angle = Math.atan(-dydx); // canvas y is inverted
+    const vx = Math.cos(angle) * vecLen;
+    const vy = Math.sin(angle) * vecLen;
+
+    drawVectorArrow(
+      ctx,
+      tracerPt.px,
+      tracerPt.py,
+      tracerPt.px + vx,
+      tracerPt.py + vy,
+      "#10b981",
+      `dy/dx=${dydx.toFixed(2)}`
+    );
+  }
+
+  // 4. Live HUD Overlay
+  ctx.save();
+  ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+  ctx.lineWidth = 1;
+  const hudW = 120;
+  const hudH = 38;
+  const hudX = w - hudW - 8;
+  const hudY = h - hudH - 8;
+
+  ctx.beginPath();
+  ctx.roundRect(hudX, hudY, hudW, hudH, 8);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "9px monospace";
+  ctx.fillText(`t: ${t.toFixed(2)}s`, hudX + 8, hudY + 14);
+  if (tracerPt) {
+    ctx.fillText(`y(x₀): ${tracerPt.y.toFixed(1)}px`, hudX + 8, hudY + 28);
+  }
+  ctx.restore();
+}
+
